@@ -1,0 +1,2910 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Core Barrier Defense</title>
+  <style>
+    html, body { margin:0; padding:0; background:#0b0f14; color:#e6edf3; font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; }
+    .wrap { display:flex; justify-content:center; padding:18px; gap:16px; flex-wrap:wrap; align-items:flex-start; }
+
+    .leftCol{ display:flex; flex-direction:column; gap:12px; align-items:flex-start; }
+
+    canvas { background:#0b0f14; border:1px solid #243040; border-radius:12px; box-shadow: 0 10px 30px rgba(0,0,0,.35); }
+
+    /* ✅ 아래(따로) 와이어 상태창 */
+    .miniPanel{
+      width: 360px;
+      max-width: 92vw;
+      border:1px solid #243040;
+      border-radius:12px;
+      padding:10px;
+      background: rgba(255,255,255,0.03);
+      box-shadow: 0 10px 30px rgba(0,0,0,.25);
+    }
+    .miniTitle{ font-weight:900; font-size:13px; margin:0 0 8px; color:#e6edf3; }
+    .miniText{ margin-top:6px; font-size:12px; color:#cbd5e1; font-variant-numeric: tabular-nums; }
+
+    .panel {
+      width: 380px; max-width: 92vw;
+      border:1px solid #243040; border-radius:12px; padding:14px 14px 12px;
+      background: rgba(255,255,255,0.03);
+    }
+    .panel h1 { margin: 0 0 10px; font-size:16px; font-weight:900; }
+    .panel p { margin: 8px 0; font-size: 13px; line-height: 1.45; color:#cbd5e1; }
+    .row { display:flex; gap:10px; margin-top:10px; }
+    button {
+      flex:1; padding:10px 12px; border-radius:10px; border:1px solid #2a3b52;
+      background:#111826; color:#e6edf3; cursor:pointer; font-weight:900;
+    }
+    button:hover { background:#0f1b2d; }
+    .small { font-size:12px; opacity:.92; color:#cbd5e1; }
+    .kbd { display:inline-block; border:1px solid #2a3b52; padding:1px 6px; border-radius:6px; background:#0e1624; font-weight:900; }
+    .stat { font-variant-numeric: tabular-nums; }
+    .sep { height:1px; background:#243040; margin:10px 0; opacity:.7; }
+    .badge { display:inline-block; padding:2px 8px; border:1px solid #2a3b52; border-radius:999px; background:#0e1624; font-size:12px; font-weight:900; }
+  
+    
+    .crystalHud{
+      display:flex; align-items:center; justify-content:space-between;
+      padding:10px 12px; border:1px solid #243040; border-radius:12px;
+      background: rgba(76,195,255,0.07);
+      box-shadow: inset 0 0 0 1px rgba(76,195,255,0.08);
+      margin: 10px 0 8px;
+    }
+    .crystalHud .crystalLabel{ font-size:12px; font-weight:900; color:#b9d9ff; letter-spacing:0.2px; }
+    .crystalHud .crystalValue{ font-size:18px; font-weight:1000; color:#eaf4ff; font-variant-numeric: tabular-nums; }
+.upgRow{ padding:8px 8px 10px; border:1px solid rgba(255,255,255,0.08); border-radius:12px; background:rgba(0,0,0,0.18); margin:8px 0; cursor:pointer; }
+    .upgRow:hover{ background:rgba(255,255,255,0.06); }
+    .upgRow.disabled{ opacity:0.55; cursor:not-allowed; }
+    .upgRow.disabled:hover{ background:rgba(0,0,0,0.18); }
+
+    .upgName{ display:flex; gap:8px; align-items:baseline; justify-content:space-between; }
+    .upgRight{ float:right; }
+    .upgDesc{ margin-top:6px; font-size:12px; color:rgba(215,227,255,0.75); line-height:1.25; }
+    .muted{ color:rgba(215,227,255,0.62); font-weight:700; font-size:12px; }
+    .miniBtn{ cursor:pointer; border-radius:10px; border:1px solid rgba(255,255,255,0.14); padding:6px 10px; background:rgba(255,255,255,0.06); color:#d7e3ff; font-weight:900; }
+    .miniBtn:disabled{ opacity:0.45; cursor:not-allowed; }
+    .miniBtn.isDisabled{ opacity:0.45; cursor:not-allowed; }
+
+  /* --- Core Passive UI --- */
+  .corePickGrid{ display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; }
+  .coreBtn{ padding:10px 10px; border-radius:12px; border:1px solid #2a3a52; background:#0b1320; color:#e5eefc; font-weight:700; cursor:pointer; }
+  .coreBtn small{ display:block; opacity:0.8; font-weight:600; margin-top:2px; }
+  .coreBtn.active{ outline:2px solid rgba(255,255,255,0.12); box-shadow:0 0 0 2px rgba(99,102,241,0.15) inset; }
+  .coreBtn.blue{ border-color:#1f3b76; }
+  .coreBtn.orange{ border-color:#7a3a14; }
+  .coreBtn.red{ border-color:#7a1f2c; }
+  .coreBtn:disabled{ opacity:0.5; cursor:not-allowed; }
+  .corePassiveDesc{ margin-top:8px; padding:10px 10px; border-radius:12px; border:1px solid #223149; background:#0a101a; color:#cfe3ff; }
+  .badge.passiveBlue{ border-color:#2563eb55; color:#93c5fd; }
+  .badge.passiveOrange{ border-color:#f9731655; color:#fdba74; }
+  .badge.passiveRed{ border-color:#ef444455; color:#fca5a5; }
+
+  .hidden{ display:none !important; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="leftCol">
+    <canvas id="c" width="960" height="540"></canvas>
+
+    <div class="miniPanel" id="wirePanel">
+      <div class="miniTitle">와이어 상태(Star UI)</div>
+      <canvas id="wire" width="360" height="190"></canvas>
+      <div class="miniText" id="wireText"></div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h1>수정탑 보호막 디펜스</h1>
+    <p>
+      보호막이 먼저 피해를 흡수하고, 보호막이 0이면 HP가 깎입니다.<br>
+      <b>HP가 70% 이하일 때만</b> 아래쪽 푸른 불꽃이 나타납니다.<br>
+      <b>HP=0이면 푸른 폭발로 붕괴</b>하며, 붕괴 시 보호막은 즉시 0입니다.
+    </p>
+
+    <p class="small">
+      조작:
+      <span class="kbd">좌클릭</span> 포탑 설치 /
+      <span class="kbd">1</span> 기본 /
+      <span class="kbd">2</span> 슬로우 /
+      <span class="kbd">3</span> 스플래시 /
+      <span class="kbd">Space</span> 긴급 보호막 /
+      <span class="kbd">R</span> 재시작
+    </p>
+
+    <div class="sep"></div>
+
+    <div class="crystalHud">
+      <div class="crystalLabel">크리스탈</div>
+      <div class="crystalValue" id="uiCrystals">0</div>
+    </div>
+
+<p class="stat" id="uiStats"></p>
+    <p class="small" id="uiMsg"></p>    <p class="small" id="uiCheat"></p>
+
+    <div class="row">
+      <button id="btnSound">사운드 ON</button>
+      <button id="btnVol">볼륨 85%</button>
+    </div>
+    <div class="row">
+      <button id="btnToggleWire">와이어 숨김</button>
+    </div>
+
+    <div class="row">
+      <button id="btnWave">웨이브 시작</button>
+      <button id="btnRestart">재시작</button>
+    </div>
+
+    <div class="row">
+      <button id="btnRepair">수리</button>
+    </div>
+
+    <div class="row">
+      <button id="btnSpeed">배속 1.0x</button>
+      <button id="btnCheat">치트 OFF</button>
+    </div>
+    <div class="miniPanel" style="margin-top:10px;">
+      <div class="miniTitle">코어 패시브 (3개 중 1개 선택)</div>
+      <div class="corePickGrid">
+        <button id="btnCoreRebuild" class="coreBtn blue">
+          🔵 재건 코어
+          <small>안정 / 장기전</small>
+        </button>
+        <button id="btnCoreResonance" class="coreBtn orange">
+          🟠 공명 반격 코어
+          <small>공격 / 포탑 중심</small>
+        </button>
+        <button id="btnCoreOverload" class="coreBtn red">
+          🔴 임계 과부하 코어
+          <small>하이리스크</small>
+        </button>
+      </div>
+      <div id="uiCorePassiveDesc" class="corePassiveDesc small">
+        패시브를 선택하면 <span class="kbd">웨이브 시작</span>이 가능합니다. (재시작 시 다시 선택)
+      </div>
+    </div>
+
+    <div class="miniPanel" style="margin-top:10px;">
+      <div class="miniTitle">업그레이드</div>
+      <div id="uiUpgrades" class="small"></div>
+    </div>
+
+    <div class="row">
+      <button id="btnEasy">난이도↓</button>
+      <button id="btnHard">난이도↑</button>
+    </div>
+
+    <p class="small">
+      코어 이미지 파일: <span class="kbd">core_icon.png</span> (index.html과 같은 폴더)
+    </p>
+  </div>
+</div>
+
+<script>
+(() => {
+  // ---------- Canvas ----------
+  const canvas = document.getElementById("c");
+  const ctx = canvas.getContext("2d");
+  const W = canvas.width, H = canvas.height;
+
+  const wireCanvas = document.getElementById("wire");
+  const wctx = wireCanvas.getContext("2d");
+  const wireText = document.getElementById("wireText");
+
+  // ---------- Utils ----------
+  const clamp = (v,a,b)=>Math.max(a,Math.min(b,v));
+  const rand  = (a,b)=>a+Math.random()*(b-a);
+  const lerp  = (a,b,t)=>a+(b-a)*t;
+  const dist  = (ax,ay,bx,by)=>Math.hypot(ax-bx, ay-by);
+  const nowSec = ()=>performance.now()/1000;
+
+  // ---------- Ending ----------
+  const FINAL_WAVE = 30;
+
+  // ---------- SFX (WebAudio, 외부 파일 없이 합성) ----------
+  const SFX = (() => {
+    let ctx = null, master = null, noiseBuf = null;
+    let enabled = true;
+    let volume = 0.85;
+
+    function ensure(){
+      if (ctx) return;
+      ctx = new (window.AudioContext || window.webkitAudioContext)();
+      master = ctx.createGain();
+      master.gain.value = volume;
+      master.connect(ctx.destination);
+
+      noiseBuf = ctx.createBuffer(1, ctx.sampleRate, ctx.sampleRate);
+      const d = noiseBuf.getChannelData(0);
+      for (let i=0;i<d.length;i++) d[i] = Math.random()*2 - 1;
+    }
+
+    async function unlock(){
+      ensure();
+      if (ctx.state === "suspended") {
+        try { await ctx.resume(); } catch {}
+      }
+      // iOS/Safari 대응: 매우 짧은 무음 재생
+      const o = ctx.createOscillator();
+      const g = ctx.createGain();
+      g.gain.value = 0.0001;
+      o.connect(g).connect(master);
+      o.start();
+      o.stop(ctx.currentTime + 0.01);
+    }
+
+    function setEnabled(v){ enabled = !!v; }
+    function getEnabled(){ return enabled; }
+
+    function setVolume(v){
+      volume = clamp(v, 0, 1);
+      ensure();
+      master.gain.value = volume;
+    }
+    function getVolume(){ return volume; }
+
+    function env(param, t, a, d, s, r, peak){
+      param.cancelScheduledValues(t);
+      param.setValueAtTime(0.0001, t);
+      param.exponentialRampToValueAtTime(Math.max(0.0002, peak), t + a);
+      param.exponentialRampToValueAtTime(Math.max(0.0001, peak*s), t + a + d);
+      param.exponentialRampToValueAtTime(0.0001, t + a + d + r);
+    }
+
+    function noise({hp=900, lp=9000, dur=0.10, vol=0.25} = {}){
+      ensure();
+      const t = ctx.currentTime;
+
+      const src = ctx.createBufferSource();
+      src.buffer = noiseBuf;
+
+      const hpF = ctx.createBiquadFilter();
+      hpF.type = "highpass";
+      hpF.frequency.value = hp;
+
+      const lpF = ctx.createBiquadFilter();
+      lpF.type = "lowpass";
+      lpF.frequency.value = lp;
+
+      const g = ctx.createGain();
+      env(g.gain, t, 0.001, 0.02, 0.2, dur, vol);
+
+      src.connect(hpF).connect(lpF).connect(g).connect(master);
+      src.start(t);
+      src.stop(t + dur + 0.05);
+    }
+
+    function tone(type, f0, f1, dur, vol){
+      ensure();
+      const t = ctx.currentTime;
+      const o = ctx.createOscillator();
+      const g = ctx.createGain();
+      o.type = type;
+      o.frequency.setValueAtTime(f0, t);
+      if (f1 && f1 !== f0) o.frequency.exponentialRampToValueAtTime(f1, t + dur*0.85);
+      env(g.gain, t, 0.001, 0.03, 0.25, dur, vol);
+      o.connect(g).connect(master);
+      o.start(t);
+      o.stop(t + dur + 0.08);
+    }
+
+    // 사운드들(가볍게, 반복돼도 거슬리지 않도록)
+    function s_click(){ tone("square", 1800, 1500, 0.045, 0.28); noise({hp:2400, lp:12000, dur:0.04, vol:0.10}); }
+    function s_place(){ tone("triangle", 700, 980, 0.08, 0.28); noise({hp:1400, lp:9000, dur:0.05, vol:0.09}); }
+    function s_shoot(){ tone("triangle", 520, 360, 0.08, 0.16); noise({hp:1700, lp:9000, dur:0.05, vol:0.07}); }
+    function s_shieldHit(){ tone("triangle", 1250, 900, 0.12, 0.38); noise({hp:1200, lp:8000, dur:0.10, vol:0.18}); }
+    function s_shieldBreak(){ tone("sawtooth", 900, 170, 0.30, 0.38); noise({hp:2200, lp:12000, dur:0.22, vol:0.33}); tone("sine", 120, 60, 0.25, 0.22); }
+    function s_coreBreak(){
+      // 수정탑 파괴(1초) — 크리스탈 크랙 + 저역 잔향 + 에너지 노이즈
+      tone("triangle", 2100, 1200, 0.14, 0.24);       // 쨍(초기)
+      tone("sawtooth", 820, 90,   0.92, 0.42);        // 길게 내려가는 크랙
+      noise({hp:1600, lp:11000, dur:0.78, vol:0.26}); // 파편/에너지 노이즈
+      tone("sine", 150, 60, 0.95, 0.18);              // 저역 잔향(1초)
+    }
+    function s_enemyShoot(){
+      // 적 발사(짧고 날카롭게)
+      tone("square", 520, 260, 0.10, 0.16);
+      noise({hp:1200, lp:7000, dur:0.08, vol:0.08});
+    }
+    function s_blast(){
+      // 폭파병(짧은 폭발)
+      tone("sine", 120, 45, 0.42, 0.40);
+      noise({hp:130, lp:1800, dur:0.38, vol:0.14});
+    }
+    function s_hpHit(){ tone("sine", 170, 95, 0.22, 0.40); noise({hp:250, lp:2200, dur:0.12, vol:0.12}); }
+    function s_boom(){ tone("sine", 90, 28, 1.00, 0.55); noise({hp:120, lp:1400, dur:0.85, vol:0.18}); }
+    function s_aegis(){ tone("triangle", 520, 1080, 0.20, 0.35); noise({hp:900, lp:7000, dur:0.16, vol:0.10}); }
+    function s_repair(){ tone("sine", 320, 540, 0.28, 0.24); tone("triangle", 900, 1320, 0.22, 0.18); noise({hp:1200, lp:9000, dur:0.18, vol:0.08}); }
+
+    function s_clear(){ tone("triangle", 640, 1240, 0.22, 0.30); }
+    function s_wave(){ tone("triangle", 420, 820, 0.18, 0.26); noise({hp:900, lp:7000, dur:0.10, vol:0.08}); }
+
+    function play(name){
+      if (!enabled) return;
+      // 잠금 해제는 각 입력에서 unlock()로 처리 (여기서 강제 resume하지 않음)
+      switch(name){
+        case "click": return s_click();
+        case "place": return s_place();
+        case "shoot": return s_shoot();
+        case "enemy_shoot": return s_enemyShoot();
+        case "blast": return s_blast();
+        case "shield_hit": return s_shieldHit();
+        case "shield_break": return s_shieldBreak();
+        case "hp_hit": return s_hpHit();
+        case "boom": return s_boom();
+        case "core_break": return s_coreBreak();
+        case "aegis": return s_aegis();
+        case "repair": return s_repair();
+        case "clear": return s_clear();
+        case "wave": return s_wave();
+      }
+    }
+    return { unlock, play, setEnabled, getEnabled, setVolume, getVolume };
+  })();
+
+  // SFX 과다 재생 방지(리미터)
+  let _lastShootSfx = 0;
+  let _lastShieldHitSfx = 0;
+  let _lastHpHitSfx = 0;
+  function sfxShoot(){
+    const t = nowSec();
+    if (t - _lastShootSfx > 0.05){ SFX.play("shoot"); _lastShootSfx = t; }
+  }
+  function sfxShieldHit(){
+    const t = nowSec();
+    if (t - _lastShieldHitSfx > 0.10){ SFX.play("shield_hit"); _lastShieldHitSfx = t; }
+  }
+  function sfxHpHit(){
+    const t = nowSec();
+    if (t - _lastHpHitSfx > 0.12){ SFX.play("hp_hit"); _lastHpHitSfx = t; }
+  }
+  function ensureAudio(){ SFX.unlock(); }
+
+  function setMsg(msg, secs=1.6){
+    state.uiMsg = String(msg||"");
+    state.uiMsgUntil = nowSec() + (secs||0);
+    if (uiMsg) uiMsg.textContent = state.uiMsg;
+  }
+
+  function mulberry32(seed){
+    let t = seed >>> 0;
+    return function() {
+      t += 0x6D2B79F5;
+      let x = Math.imul(t ^ (t >>> 15), 1 | t);
+      x ^= x + Math.imul(x ^ (x >>> 7), 61 | x);
+      return ((x ^ (x >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+
+  // ---------- Layout ----------
+  const CORE_POS = { x: W*0.5, y: H*0.5 };
+  const CORE_RADIUS = 34;
+  const BUILD_RADIUS = 240;
+
+  // ---------- Assets (기존 이미지 유지) ----------
+  const coreIcon = new Image();
+  coreIcon.src = "core_icon.png";
+  let coreIconReady = false;
+  coreIcon.onload = () => coreIconReady = true;
+
+  // ---------- Turrets ----------
+  const TURRET_TYPES = {
+    basic:  { key:"1", name:"기본 포탑",   cost:35, range:175, fireRate:3.0, dmg:9,  projSpd:350, splash:0,  slow:0,    desc:"단일 타겟, 안정형" },
+    slow:   { key:"2", name:"슬로우 포탑", cost:45, range:165, fireRate:2.2, dmg:6,  projSpd:330, splash:0,  slow:0.35, desc:"피격 시 둔화" },
+    splash: { key:"3", name:"스플래시",    cost:60, range:155, fireRate:1.5, dmg:12, projSpd:310, splash:48, slow:0,    desc:"범위 폭발 피해" },
+  };
+
+  const EVENTS = [
+    { id:"barrier_null",  name:"보호막 무력화", desc:"이번 웨이브 동안 보호막이 피해를 흡수하지 못합니다(HP 직격).",
+      apply(s){ s.mods.shieldAbsorbMul = 0; s.mods.shieldRegenMul = 0.25; } },
+    { id:"proj_slow",    name:"탄속 감소",  desc:"이번 웨이브 동안 포탑 탄속/연사력이 감소합니다.",
+      apply(s){ s.mods.turretProjMul = 0.72; s.mods.turretFireMul = 0.78; } },
+    { id:"double_crystal", name:"자원 2배", desc:"이번 웨이브 동안 처치 보상이 2배입니다.",
+      apply(s){ s.mods.rewardMul = 2.0; } },
+  ];
+
+  // ---------- State ----------
+  const state = {
+    difficulty: 1.0,
+    speed: 1.0,
+    cheat: false,
+    god: false,
+    gtime: 0,
+    wave: 1,
+    phase: "build", // build | wave | clear | fail
+    crystals: 80,
+    selected: "basic",
+    lastTime: nowSec(),
+    time: 0,
+
+    isInfinite: false,
+    ngPlus: 0,
+    win: null,
+    stats: { runStart: nowSec(), kills: 0, damageTaken: 0, repairs: 0 },
+
+    hardError: "",
+    uiMsg: "",
+    uiMsgUntil: 0,
+
+    autoStartDelay: 10.0,
+    autoStartAt: 0,
+
+    upg: {
+      coreHp: 0,
+      coreShield: 0,
+      hpArmor: 0,
+      shieldArmor: 0,
+      shieldRegen: 0,
+      repair: 0,
+      turretDmg: 0,
+      turretFire: 0,
+      turretRange: 0,
+      slowPower: 0,
+      splashRadius: 0,
+    },
+
+    enemies: [],
+    turrets: [],
+    projectiles: [],
+    fx: [],
+
+    flames: [],
+    flameSpawnAcc: 0,
+
+    debris: [],
+    collapse: null, // {t, boomT, shake, fade}
+
+    event: null,
+    eventTextTimer: 0,
+
+    mods: {
+      shieldAbsorbMul: 1,
+      shieldRegenMul: 1,
+      turretProjMul: 1,
+      turretFireMul: 1,
+      rewardMul: 1,
+    },
+
+    core: {
+      hpMax: 420, hp: 420,
+      shieldMax: 240, shield: 240,
+      shieldRegen: 7,
+      hpArmor: 2,
+      shieldArmor: 2,
+
+      // 코어 패시브(3택1)
+      passiveId: null,        // "rebuild" | "resonance" | "overload"
+      passiveStacks: 0,       // 공명 반격 스택
+      passiveLastHitAt: -999, // 마지막 피격(스택 유지/감소용)
+      passiveStackDecayAcc: 0,
+      hpDirectDamaged: false, // HP에 "직접" 피해를 입은 적이 있으면 true (재건 코어 자동수리 조건)
+      // 자동 회복 옵션
+      // - 사용자가 원하시면 true로 바꾸면, 웨이브가 아닌 구간에서 HP가 천천히 회복됩니다.
+      passiveHpRegenEnabled: false,
+      // - 보호막 자동 재생을 웨이브 중에만 하려면 false (현재 기본 false)
+      shieldRegenOutOfWave: false,
+
+      // ----- Repair (HP 회복) -----
+      // 자동 수리: build/clear 단계에서, 최근 HP 피해 후 일정 시간 지나면 초당 회복
+      hpRegenPerSec: 6,
+      hpRegenDelay: 4.0,
+      lastHpDamageAt: -999,
+
+      // 수리 버튼/키(F): 자원 소모 + 즉시 회복 + 쿨다운
+      repairCost: 20,
+      repairAmount: 90,
+      repairCd: 12.0,
+      repairReadyAt: 0,
+
+      aegisCd: 18.0,
+      aegisReadyAt: 0,
+      aegisActiveUntil: 0,
+    },
+
+    spawn: null
+  };
+
+  // ---------- Time (real vs game) ----------
+  function gameSec(){ return state.gtime; }
+
+  function setSpeed(v){
+    state.speed = clamp(v, 0.25, 8);
+    if (btnSpeed) btnSpeed.textContent = `배속 ${state.speed.toFixed(2).replace(/\.00$/,".0")}x`;
+  }
+
+  function cycleSpeed(){
+    const steps = [0.5, 1, 1.5, 2, 3, 4];
+    const cur = state.speed;
+    let i = steps.findIndex(s => Math.abs(s-cur) < 0.01);
+    if (i < 0) i = 1;
+    i = (i + 1) % steps.length;
+    setSpeed(steps[i]);
+    setMsg(`배속: ${state.speed.toFixed(2).replace(/\.00$/,".0")}x`, 1.8);
+  }
+
+  function toggleCheat(){
+    state.cheat = !state.cheat;
+    setMsg(state.cheat ? "치트 ON (T로 끄기)" : "치트 OFF", 2.0);
+  }
+
+  function cheatGuard(){
+    if (!state.cheat) { setMsg("치트가 OFF 입니다. (T)", 1.6); return false; }
+    return true;
+  }
+
+  function cheatAddCrystals(n=500){
+    if (!cheatGuard()) return;
+    state.crystals += (n|0);
+    setMsg(`크리스탈 +${n}`, 1.8);
+  }
+
+  function cheatHealHP(){
+    if (!cheatGuard()) return;
+    state.core.hp = state.core.hpMax;
+    setMsg("HP 풀회복", 1.8);
+  }
+
+  function cheatRefillShield(){
+    if (!cheatGuard()) return;
+    state.core.shield = state.core.shieldMax;
+    setMsg("보호막 풀충전", 1.8);
+  }
+
+  function cheatKillAll(){
+    if (!cheatGuard()) return;
+    const n = state.enemies.length;
+    state.enemies.length = 0;
+    state.projectiles = state.projectiles.filter(p=>p.kind !== "enemy");
+    setMsg(`적 제거: ${n}마리`, 1.8);
+  }
+
+  function cheatSkipWave(){
+    if (!cheatGuard()) return;
+    if (state.phase === "wave") {
+      cheatKillAll();
+      clearWave();
+    } else if (state.phase === "build" || state.phase === "clear") {
+      startWave();
+    }
+    setMsg("웨이브 스킵", 1.8);
+  }
+
+  function cheatMaxUpgrades(){
+    if (!cheatGuard()) return;
+    for (const def of UPGRADE_DEFS) state.upg[def.id] = def.max;
+    applyUpgrades();
+    setMsg("업그레이드 MAX", 2.0);
+  }
+
+  function toggleGod(){
+    if (!cheatGuard()) return;
+    state.god = !state.god;
+    setMsg(state.god ? "무적 ON" : "무적 OFF", 2.0);
+  }
+
+  // ---------- Upgrades ----------
+  const CORE_BASE = {
+    hpMax: state.core.hpMax,
+    shieldMax: state.core.shieldMax,
+    shieldRegen: state.core.shieldRegen,
+    hpArmor: state.core.hpArmor,
+    shieldArmor: state.core.shieldArmor,
+    repairCost: state.core.repairCost,
+    repairAmount: state.core.repairAmount,
+    repairCd: state.core.repairCd,
+  };
+
+  const UPGRADE_DEFS = [
+    { id:"coreHp", name:"본체 내구(HP)", max:5, base:55, grow:1.55, desc:(lv)=>`최대 HP +${40*lv}`, apply(){ state.core.hpMax = CORE_BASE.hpMax + 40*state.upg.coreHp; } },
+    { id:"coreShield", name:"보호막 용량", max:5, base:55, grow:1.55, desc:(lv)=>`최대 보호막 +${30*lv}`, apply(){ state.core.shieldMax = CORE_BASE.shieldMax + 30*state.upg.coreShield; } },
+    { id:"hpArmor", name:"방어력", max:5, base:60, grow:1.60, desc:(lv)=>`방어력 +${2*lv}`, apply(){ state.core.hpArmor = CORE_BASE.hpArmor + 2*state.upg.hpArmor; } },
+    { id:"shieldArmor", name:"보호막 방어력", max:5, base:60, grow:1.60, desc:(lv)=>`보호막 방어력 +${2*lv}`, apply(){ state.core.shieldArmor = CORE_BASE.shieldArmor + 2*state.upg.shieldArmor; } },
+    { id:"shieldRegen", name:"보호막 재생", max:5, base:70, grow:1.60, desc:(lv)=>`재생 +${(0.8*lv).toFixed(1)}/s`, apply(){ state.core.shieldRegen = CORE_BASE.shieldRegen + 0.8*state.upg.shieldRegen; } },
+
+    { id:"repair", name:"수리 공학", max:6, base:75, grow:1.62,
+      desc:(lv)=>`회복 +${15*lv} / 비용 -${2*lv} / 쿨 -${1*lv}s`,
+      apply(){
+        const lv = state.upg.repair;
+        state.core.repairAmount = CORE_BASE.repairAmount + 15*lv;
+        state.core.repairCost   = Math.max(8, CORE_BASE.repairCost - 2*lv);
+        state.core.repairCd     = Math.max(6, CORE_BASE.repairCd - 1*lv);
+      } },
+
+    { id:"turretDmg", name:"포탑 화력", max:6, base:80, grow:1.62, desc:(lv)=>`피해 +${Math.round(15*lv)}%`, apply(){} },
+    { id:"turretFire", name:"포탑 연사", max:6, base:80, grow:1.62, desc:(lv)=>`연사 +${Math.round(10*lv)}%`, apply(){} },
+    { id:"turretRange", name:"포탑 사거리", max:6, base:70, grow:1.58, desc:(lv)=>`사거리 +${12*lv}`, apply(){} },
+
+    { id:"slowPower", name:"슬로우 강화", max:5, base:65, grow:1.58, desc:(lv)=>`둔화 +${Math.round(6*lv)}%`, apply(){} },
+    { id:"splashRadius", name:"스플래시 반경", max:5, base:65, grow:1.58, desc:(lv)=>`반경 +${8*lv}`, apply(){} },
+  ];
+
+  function upgCost(def){
+    const lv = state.upg[def.id];
+    const cost = def.base * Math.pow(def.grow, lv);
+    return Math.round(cost/5)*5;
+  }
+
+  function applyUpgrades(){
+    // base -> upgraded
+    for (const def of UPGRADE_DEFS) def.apply();
+    // clamp current values to new max
+    state.core.hp = clamp(state.core.hp, 0, state.core.hpMax);
+    state.core.shield = clamp(state.core.shield, 0, state.core.shieldMax);
+  }
+
+  function buyUpgrade(id){
+    const def = UPGRADE_DEFS.find(d=>d.id===id);
+    if (!def) return;
+    const lv = state.upg[id];
+    if (lv >= def.max) return;
+
+    const cost = upgCost(def);
+    if (state.crystals < cost) return;
+
+    state.crystals -= cost;
+    state.upg[id]++;
+
+    applyUpgrades();
+    SFX.play("click");
+    setMsg(`업그레이드 완료: ${def.name} (-${cost})`, 1.8);
+    fxText(`강화: ${def.name}`, CORE_POS.x, CORE_POS.y - 92, "#93c5fd");
+  }
+
+    function renderUpgrades(){
+    if (!uiUpgrades) return;
+
+    let out = "";
+    for (const def of UPGRADE_DEFS) {
+      const lv = state.upg[def.id];
+      const max = def.max;
+      const cost = upgCost(def);
+      const enough = (state.crystals >= cost);
+      const canBuy = (lv < max) && enough && (state.phase !== "fail");
+
+      const rowClass = canBuy ? "upgRow" : "upgRow disabled";
+      const btnLabel = (lv >= max) ? "MAX" : `${cost}`;
+      const btnDisabled = (lv >= max) || (!enough) || (state.phase === "fail");
+      const btnClass = btnDisabled ? "miniBtn isDisabled" : "miniBtn";
+
+      const hint = (lv >= max)
+        ? "최대 레벨입니다."
+        : (!enough ? `자원 부족 (필요 ${cost}, 보유 ${state.crystals})` : "구매 가능");
+
+      out += `
+        <div class="${rowClass}" data-upg="${def.id}" data-can="${canBuy ? 1 : 0}" title="${hint}">
+          <div class="upgName"><b>${def.name}</b> <span class="muted">Lv ${lv}/${max}</span></div>
+          <div class="upgRight"><button class="${btnClass}">${btnLabel}</button></div>
+          <div class="upgDesc">${def.desc(lv+1)}</div>
+        </div>
+      `;
+    }
+
+    uiUpgrades.innerHTML = out;
+  }
+
+  // ---------- UI ----------
+  const uiStats = document.getElementById("uiStats");
+    const uiCrystals = document.getElementById("uiCrystals");
+const uiMsg   = document.getElementById("uiMsg");
+const uiCheat = document.getElementById("uiCheat");
+  const uiUpgrades = document.getElementById("uiUpgrades");
+  const uiEvent = document.getElementById("uiEvent");
+
+  const btnCoreRebuild   = document.getElementById("btnCoreRebuild");
+  const btnCoreResonance = document.getElementById("btnCoreResonance");
+  const btnCoreOverload  = document.getElementById("btnCoreOverload");
+  const uiCorePassiveDesc = document.getElementById("uiCorePassiveDesc");
+
+  const CORE_PASSIVES = {
+    rebuild: {
+      id:"rebuild", name:"재건 코어", colorClass:"passiveBlue",
+      desc:[
+        "체력이 낮아질수록 방어력이 증가합니다.",
+        "HP 자동 회복이 활성화됩니다.",
+        "공격 보너스는 없습니다."
+      ]
+    },
+    resonance: {
+      id:"resonance", name:"공명 반격 코어", colorClass:"passiveOrange",
+      desc:[
+        "피격할수록 포탑 공격력/공격속도가 누적 상승합니다.",
+        "최대 스택 시 포탄이 1회 관통 + 약한 체인 효과가 추가됩니다.",
+        "맞는 걸 전제로 성장하는 공격형입니다."
+      ]
+    },
+    overload: {
+      id:"overload", name:"임계 과부하 코어", colorClass:"passiveRed",
+      desc:[
+        "저체력 구간에서 화력이 급격히 증가합니다.",
+        "보호막 재생이 급격히 증가합니다.",
+        "저체력일수록 받는 피해가 감소합니다.",
+        "안정성은 낮지만 역전력이 큽니다."
+      ]
+    },
+  };
+
+  function passiveSelected(){ return !!state.core.passiveId; }
+
+  function refreshCorePassiveUI(){
+    const id = state.core.passiveId;
+    const setActive = (btn, on) => { if(!btn) return; btn.classList.toggle("active", !!on); };
+
+    setActive(btnCoreRebuild, id==="rebuild");
+    setActive(btnCoreResonance, id==="resonance");
+    setActive(btnCoreOverload, id==="overload");
+
+    // 웨이브 시작은 패시브 선택 후 가능
+    if (btnWave) btnWave.disabled = !id;
+
+    if (uiCorePassiveDesc) {
+      if (!id) {
+        uiCorePassiveDesc.innerHTML = `패시브를 선택하면 <span class="kbd">웨이브 시작</span>이 가능합니다. (재시작 시 다시 선택)`;
+      } else {
+        const d = CORE_PASSIVES[id];
+
+        uiCorePassiveDesc.innerHTML =
+          `<b>${d.name}</b><br>` +
+          d.desc.map(s=>`• ${s}`).join("<br>");
+      }
+    }
+  }
+
+  function selectCorePassive(id){
+    if (!(id in CORE_PASSIVES)) return;
+    ensureAudio();
+    SFX.play("click");
+    if (!(state.phase==="build" || state.phase==="clear")) {
+      setMsg("웨이브 중에는 패시브를 바꿀 수 없습니다.", 2.0);
+      return;
+    }
+    state.core.passiveId = id;
+    state.core.passiveStacks = 0;
+    state.core.passiveLastHitAt = gameSec();
+    state.core.passiveStackDecayAcc = 0;
+    state.core.hpDirectDamaged = false;
+
+    setMsg(`패시브 선택: ${CORE_PASSIVES[id].name}`, 2.0);
+    refreshCorePassiveUI();
+    refreshUI();
+  refreshCorePassiveUI();
+  }
+
+  if (btnCoreRebuild)   btnCoreRebuild.addEventListener("click", ()=>selectCorePassive("rebuild"));
+  if (btnCoreResonance) btnCoreResonance.addEventListener("click", ()=>selectCorePassive("resonance"));
+  if (btnCoreOverload)  btnCoreOverload.addEventListener("click", ()=>selectCorePassive("overload"));
+
+// 업그레이드 입력: 클릭이 씹히는 환경(프레임마다 innerHTML 갱신 등) 대비
+// - pointerdown에서 "즉시 구매" 처리(마우스 업 전에 DOM이 바뀌어도 확실히 반영)
+// - 클릭 이벤트는 백업용
+if (uiUpgrades) {
+  const handleUpg = (ev) => {
+    const row = ev.target.closest("[data-upg]");
+    if (!row) return;
+
+    // 패널 클릭이 캔버스 설치 등으로 흘러가지 않게
+    ev.preventDefault();
+    ev.stopPropagation();
+
+    ensureAudio();
+
+    const id = row.dataset.upg;
+    const def = UPGRADE_DEFS.find(d=>d.id===id);
+    if (!def) return;
+
+    const lv = state.upg[id];
+    const cost = upgCost(def);
+
+    const canBuy = (lv < def.max) && (state.phase !== "fail") && (state.phase !== "win") && (state.crystals >= cost);
+    if (!canBuy) {
+      SFX.play("click");
+      const msg =
+        (lv >= def.max) ? "이미 MAX입니다!" :
+        (state.phase === "fail") ? "붕괴 후에는 강화할 수 없습니다!" :
+        (state.crystals < cost) ? `자원이 부족합니다! (${state.crystals}/${cost})` :
+        "지금은 강화할 수 없습니다!";
+      fxText(msg, CORE_POS.x, CORE_POS.y - 92, "#ff9fb2");
+      setMsg("업그레이드 실패: " + msg, 2.2);
+      return;
+    }
+
+    buyUpgrade(id);
+    // 즉시 UI 갱신(다음 프레임 기다리지 않기)
+    window.__upgLastRenderAt = 0;
+    refreshUI();
+  };
+
+  uiUpgrades.addEventListener("pointerdown", handleUpg, { capture:true });
+  }
+
+  const btnWave = document.getElementById("btnWave");
+  const btnRestart = document.getElementById("btnRestart");
+  const btnRepair  = document.getElementById("btnRepair");
+  const btnEasy = document.getElementById("btnEasy");
+  const btnHard = document.getElementById("btnHard");
+
+  const btnSound = document.getElementById("btnSound");
+  const btnVol   = document.getElementById("btnVol");
+  const btnToggleWire = document.getElementById("btnToggleWire");
+  const btnSpeed = document.getElementById("btnSpeed");
+  const btnCheat = document.getElementById("btnCheat");
+
+  btnWave.onclick = () => {
+    ensureAudio();
+    SFX.play("click");
+    if (state.phase === "win") { continueInfinite(); return; }
+    if (state.phase === "build" || state.phase === "clear") startWave();
+  };
+  btnRestart.onclick = () => { ensureAudio(); SFX.play("click"); if (state.phase === "win") newGamePlus(); else restart(); };
+  btnRepair.onclick  = () => { ensureAudio(); tryRepair(); };
+  btnEasy.onclick = () => { ensureAudio(); SFX.play("click"); state.difficulty = clamp(state.difficulty - 0.1, 0.6, 2.0); };
+  btnHard.onclick = () => { ensureAudio(); SFX.play("click"); state.difficulty = clamp(state.difficulty + 0.1, 0.6, 2.0); };
+
+  // ---------- Sound UI ----------
+  const VOL_STEPS = [0.00, 0.35, 0.60, 0.85];
+  let volIdx = 3;
+
+  function refreshSoundUI(){
+    btnSound.textContent = SFX.getEnabled() ? "사운드 ON" : "사운드 OFF";
+    btnVol.textContent   = `볼륨 ${Math.round(SFX.getVolume()*100)}%`;
+  }
+  refreshSoundUI();
+
+  btnSound.onclick = () => {
+    ensureAudio();
+    const next = !SFX.getEnabled();
+    SFX.setEnabled(next);
+    SFX.play("click");
+    refreshSoundUI();
+  };
+
+  btnVol.onclick = () => {
+    ensureAudio();
+    volIdx = (volIdx + 1) % VOL_STEPS.length;
+    SFX.setVolume(VOL_STEPS[volIdx]);
+    // 볼륨 0이면 자동으로 끔처럼 느껴지니, enabled는 유지
+    if (SFX.getVolume() > 0) SFX.play("click");
+    refreshSoundUI();
+  };
+
+  if (btnToggleWire) btnToggleWire.onclick = () => {
+    const p = document.getElementById("wirePanel");
+    if (!p) return;
+    const hidden = p.classList.toggle("hidden");
+    btnToggleWire.textContent = hidden ? "와이어 표시" : "와이어 숨김";
+  };
+
+  if (btnSpeed) btnSpeed.onclick = () => { ensureAudio(); SFX.play("click"); cycleSpeed(); };
+  if (btnCheat) btnCheat.onclick = () => { ensureAudio(); SFX.play("click"); toggleCheat(); };
+
+  window.addEventListener("keydown", (e) => {
+    if (["Digit1","Digit2","Digit3","Space","KeyR","KeyF"].includes(e.code)) e.preventDefault();
+    if (["Digit1","Digit2","Digit3","Space","KeyR","KeyF"].includes(e.code)) ensureAudio();
+    if (e.code === "Digit1") { state.selected = "basic"; SFX.play("click"); }
+    if (e.code === "Digit2") { state.selected = "slow"; SFX.play("click"); }
+    if (e.code === "Digit3") { state.selected = "splash"; SFX.play("click"); }
+    if (e.code === "Space")  tryAegis();
+    if (e.code === "KeyF")  tryRepair();
+    if (e.code === "KeyR") { SFX.play("click"); restart(); }
+    // Speed controls
+    if (["Minus","Equal","BracketLeft","BracketRight"].includes(e.code)) { e.preventDefault(); ensureAudio(); }
+    if (e.code === "Minus" || e.code === "BracketLeft") { SFX.play("click"); setSpeed(state.speed/1.25); setMsg(`배속: ${state.speed.toFixed(2).replace(/\.00$/,".0")}x`, 1.6); }
+    if (e.code === "Equal" || e.code === "BracketRight") { SFX.play("click"); setSpeed(state.speed*1.25); setMsg(`배속: ${state.speed.toFixed(2).replace(/\.00$/,".0")}x`, 1.6); }
+
+    // Cheat toggle
+    if (e.code === "KeyT") { e.preventDefault(); ensureAudio(); SFX.play("click"); toggleCheat(); }
+
+    // Cheat actions (only when cheat ON)
+    if (state.cheat){
+      if (["KeyK","KeyH","KeyJ","KeyB","KeyN","KeyU","KeyG"].includes(e.code)) { e.preventDefault(); ensureAudio(); }
+      if (e.code === "KeyK") cheatAddCrystals(500);
+      if (e.code === "KeyH") cheatHealHP();
+      if (e.code === "KeyJ") cheatRefillShield();
+      if (e.code === "KeyB") cheatKillAll();
+      if (e.code === "KeyN") cheatSkipWave();
+      if (e.code === "KeyU") cheatMaxUpgrades();
+      if (e.code === "KeyG") toggleGod();
+    }
+
+  });
+
+  // ---------- Build placement ----------
+  const mouse = { x:0, y:0, inside:false };
+  canvas.addEventListener("mousemove", (e)=>{
+    const r = canvas.getBoundingClientRect();
+    mouse.x = (e.clientX - r.left) * (canvas.width / r.width);
+    mouse.y = (e.clientY - r.top)  * (canvas.height / r.height);
+    mouse.inside = (mouse.x>=0 && mouse.x<=W && mouse.y>=0 && mouse.y<=H);
+  });
+  canvas.addEventListener("mouseleave", ()=> mouse.inside=false);
+  canvas.addEventListener("contextmenu", (e)=>e.preventDefault());
+
+  canvas.addEventListener("mousedown", (e) => {
+    if (state.phase !== "build" && state.phase !== "clear") return;
+
+    ensureAudio();
+
+    // ✅ 왼쪽 클릭만 설치 (우클릭/휠클릭 방지)
+    if (e.button !== 0) return;
+
+    const r = canvas.getBoundingClientRect();
+    const mx = (e.clientX - r.left) * (canvas.width / r.width);
+    const my = (e.clientY - r.top)  * (canvas.height / r.height);
+
+    const tt = TURRET_TYPES[state.selected];
+    const dCore = dist(mx,my, CORE_POS.x, CORE_POS.y);
+
+    if (dCore < CORE_RADIUS + 30) return;
+    if (dCore > BUILD_RADIUS) return;
+    if (overlapsTurret(mx,my)) return;
+
+    if (state.crystals < tt.cost) { fxText("자원이 부족합니다!", mx, my, "#ff9fb2"); return; }
+
+    state.crystals -= tt.cost;
+    state.turrets.push({ type: state.selected, x: mx, y: my, cd: 0 });
+    fxRing(mx,my, 14, 64, "#7dd3fc");
+    SFX.play("place");
+  });
+
+  function overlapsTurret(x,y){
+    for (const t of state.turrets) if (dist(x,y, t.x,t.y) < 34) return true;
+    return false;
+  }
+
+  // ---------- Wave Spec ----------
+  function waveSpec(w){
+    const isBoss = (w % 5 === 0) || (w === FINAL_WAVE);
+    const isFinal = (w === FINAL_WAVE);
+    const baseCount = Math.floor(10 + w*2.2);
+    const count = isBoss ? Math.max(8, Math.floor(baseCount*0.65)) : baseCount;
+
+    const hp  = (26 + w*6) * (isFinal ? 3.4 : (isBoss ? 2.25 : 1.0));
+    const spd = (42 + w*2.3) * (isFinal ? 0.85 : (isBoss ? 0.92 : 1.0));
+    const spawnRate = (isFinal ? 0.75 : (isBoss ? 0.9 : 1.25)) + w*0.03;
+    return { count, hp, spd, spawnRate, isBoss, isFinal };
+  }
+
+  // ---------- Enemy types ----------
+  const ENEMY_ARCH = {
+    grunt: { name:"돌격병",  hpMul:1.00, spdMul:1.00, r:12, reward:10, touchDmg:9,  touchCd:0.70, color:"#fb7185" },
+    shooter:{ name:"사수",    hpMul:0.90, spdMul:0.92, r:11, reward:12, touchDmg:7,  touchCd:0.85,
+              ranged:true, shootRange:260, holdDist:230, shotCd:1.15, projDmg:8, projSpd:320,
+              coreOpts:{ hpArmorPierce:0.20 }, color:"#fbbf24" },
+    shieldbreaker:{ name:"실드 브레이커", hpMul:1.05, spdMul:1.02, r:12, reward:13, touchDmg:8, touchCd:0.72,
+              coreOpts:{ shieldBonusMul:1.55 }, color:"#60a5fa" },
+    piercer:{ name:"관통병",  hpMul:0.95, spdMul:1.12, r:12, reward:13, touchDmg:10, touchCd:0.72,
+              coreOpts:{ hpArmorPierce:0.65 }, color:"#a78bfa" },
+    bomber:{ name:"폭파병",   hpMul:0.82, spdMul:1.25, r:12, reward:14, touchDmg:0, touchCd:0,
+              bomber:true, explodeDmg:32, explodeRad:120, turretBreakChance:0.35,
+              coreOpts:{ shieldBonusMul:1.20 }, color:"#34d399" },
+
+    boss: { name:"정예 코어브레이커", hpMul:6.5, spdMul:0.85, r:22, reward:80, touchDmg:20, touchCd:0.55,
+            ranged:true, shootRange:320, holdDist:260, shotCd:0.95, projDmg:14, projSpd:360,
+            coreOpts:{ hpArmorPierce:0.35, shieldBonusMul:1.15 }, color:"#f472b6" },
+  };
+
+  function pickEnemyId(w, spec, idx){
+    // boss wave: 첫 스폰은 보스 1마리
+    if (spec.isBoss && idx === 0) return "boss";
+
+    const pool = [];
+    pool.push(["grunt",  60]);
+
+    if (w >= 2) pool.push(["shooter", 18]);
+    if (w >= 3) pool.push(["shieldbreaker", 16]);
+    if (w >= 4) pool.push(["piercer", 16]);
+    if (w >= 6) pool.push(["bomber", 14]);
+
+    // boss wave: 특수 몹 비중 증가
+    if (spec.isBoss) {
+      for (let i=0;i<pool.length;i++) pool[i][1] *= (pool[i][0]==="grunt" ? 0.55 : 1.25);
+    }
+
+    let sum = 0; for (const [,wgt] of pool) sum += wgt;
+    let r = Math.random()*sum;
+    for (const [id,wgt] of pool) { r -= wgt; if (r <= 0) return id; }
+    return "grunt";
+  }
+
+  function resetMods(){
+    state.mods.shieldAbsorbMul = 1;
+    state.mods.shieldRegenMul  = 1;
+    state.mods.turretProjMul   = 1;
+    state.mods.turretFireMul   = 1;
+    state.mods.rewardMul       = 1;
+  }
+  function chooseEvent(){
+    if (state.wave % 3 !== 0) return null;
+    return EVENTS[Math.floor(Math.random()*EVENTS.length)];
+  }
+
+  // ---------- Emergency barrier ----------
+  function tryAegis(){
+    if (state.phase === "fail") return;
+    const t = gameSec();
+    if (t < state.core.aegisReadyAt) return;
+
+    state.core.aegisReadyAt = t + state.core.aegisCd;
+    state.core.aegisActiveUntil = t + 3.0;
+    state.core.shield = clamp(state.core.shield + 90, 0, state.core.shieldMax);
+
+    SFX.play("aegis");
+
+    fxText("긴급 보호막!", CORE_POS.x, CORE_POS.y - 64, "#93c5fd");
+    fxShieldWave(CORE_POS.x, CORE_POS.y, CORE_RADIUS + 18);
+    fxRing(CORE_POS.x, CORE_POS.y, CORE_RADIUS+10, 120, "#60a5fa");
+  }
+
+  
+  function tryRepair(){
+    if (state.phase === "fail") return;
+
+    const t = gameSec();
+    const cdLeft = Math.max(0, state.core.repairReadyAt - t);
+
+    if (cdLeft > 0) {
+      fxText(`수리 쿨다운 ${cdLeft.toFixed(1)}s`, CORE_POS.x, CORE_POS.y - 70, "#ffd166");
+      SFX.play("click");
+      return;
+    }
+    if (state.core.hp >= state.core.hpMax - 0.01) {
+      fxText("HP가 이미 가득합니다", CORE_POS.x, CORE_POS.y - 70, "#93c5fd");
+      SFX.play("click");
+      return;
+    }
+    if (state.crystals < state.core.repairCost) {
+      fxText("자원이 부족합니다", CORE_POS.x, CORE_POS.y - 70, "#ff9fb2");
+      SFX.play("click");
+      return;
+    }
+
+    state.crystals -= state.core.repairCost;
+    state.stats.repairs = (state.stats.repairs|0) + 1;
+
+    const want = state.core.repairAmount;
+    const heal = Math.min(want, state.core.hpMax - state.core.hp);
+    state.core.hp = clamp(state.core.hp + heal, 0, state.core.hpMax);
+
+    state.core.repairReadyAt = t + state.core.repairCd;
+
+    SFX.play("repair");
+    fxRing(CORE_POS.x, CORE_POS.y, CORE_RADIUS+10, CORE_RADIUS+90, "#67f3a6");
+    fxText(`수리 +${(heal|0)}`, CORE_POS.x, CORE_POS.y - 64, "#67f3a6");
+  }
+
+// ---------- Spawning ----------
+  function spawnEnemy(spec, idx){
+    const side = (Math.random()*4)|0;
+    const pad = 26;
+    let x,y;
+    if (side===0){ x = rand(pad, W-pad); y = -pad; }
+    if (side===1){ x = W+pad; y = rand(pad, H-pad); }
+    if (side===2){ x = rand(pad, W-pad); y = H+pad; }
+    if (side===3){ x = -pad; y = rand(pad, H-pad); }
+
+        const id = pickEnemyId(state.wave, spec, idx||0);
+    const arch = ENEMY_ARCH[id] || ENEMY_ARCH.grunt;
+
+    const elite = spec.isBoss && (id !== "boss") && Math.random() < 0.22;
+    const r = (arch.r || 12) * (elite ? 1.15 : 1.0);
+    const hp = spec.hp * arch.hpMul * (elite ? 1.8 : 1.0) * state.difficulty;
+    const spd = spec.spd * arch.spdMul * (elite ? 0.90 : 1.0) * (0.92 + 0.16*Math.random()) * state.difficulty;
+
+    // 웨이브가 오를수록 "위력(피해)"도 상승
+    // - 너무 가파르지 않게 선형 증가 (원하면 0.06 값을 조절)
+    const dmgMul = (1 + Math.max(0, state.wave - 1) * 0.06) * (spec.isBoss ? 1.15 : 1.0);
+
+    state.enemies.push({
+      x,y, hp, hpMax: hp, spd, r,
+      kind: id,
+      color: arch.color,
+      seedAng: Math.random()*Math.PI*2,
+      orbitDir: (Math.random()<0.5 ? -1 : 1),
+      reward: arch.reward * (elite ? 1.35 : 1.0),
+      slowMul: 1.0, slowUntil: 0,
+      touchCd: 0,
+      touchBase: arch.touchDmg * dmgMul,
+      touchInterval: arch.touchCd,
+      ranged: !!arch.ranged,
+      bomber: !!arch.bomber,
+      explodeDmg: (arch.explodeDmg||0) * dmgMul,
+      explodeRad: arch.explodeRad||0,
+      turretBreakChance: arch.turretBreakChance||0,
+      shootRange: arch.shootRange||0,
+      holdDist: arch.holdDist||0,
+      shotCd: arch.shotCd||0,
+      shotTimer: rand(0.15, arch.shotCd||0.8),
+      projDmg: (arch.projDmg||0) * dmgMul,
+      projSpd: arch.projSpd||0,
+      coreOpts: arch.coreOpts||null,
+      elite
+    });
+  }
+
+  // ---------- Turrets / Projectiles ----------
+  function turretBase(t){
+    const b = TURRET_TYPES[t.type];
+    const u = state.upg;
+    // global upgrades
+    const dmgMul  = 1 + 0.15*u.turretDmg;
+    const fireMul = 1 + 0.10*u.turretFire;
+    const rangeAdd = 12*u.turretRange;
+
+    const out = { ...b };
+    out.dmg = b.dmg * dmgMul;
+    out.fireRate = b.fireRate * fireMul;
+    out.range = b.range + rangeAdd;
+
+    // type-specific upgrades
+    if (t.type === "slow") {
+      out.slow = clamp(b.slow + 0.06*u.slowPower, 0, 0.85);
+    }
+    if (t.type === "splash") {
+      out.splash = b.splash + 8*u.splashRadius;
+    }
+
+    // 코어 패시브: 포탑 보너스
+    if (state.core.passiveId === "resonance") {
+      const sN = clamp(state.core.passiveStacks, 0, 20);
+      // 스택당: 피해 +1.5%, 공속 +1.0%
+      out.dmg *= (1 + 0.015*sN);
+      out.fireRate *= (1 + 0.010*sN);
+
+      // 최대 스택: 1회 관통 + 약한 체인
+      if (sN >= 20) {
+        out.pierce = 1;
+        out.chain = 1;
+        out.chainRange = 110;
+        out.chainMul = 0.55;
+      }
+    }
+    if (state.core.passiveId === "overload") {
+      const hpFrac = state.core.hpMax>0 ? (state.core.hp/state.core.hpMax) : 1;
+      // HP 40% 이하부터 가속, 10%에서 최대
+      const tO = clamp((0.40 - hpFrac) / 0.30, 0, 1);
+      // 최대: 피해 +75%, 공속 +55%
+      out.dmg *= (1 + 0.75*tO);
+      out.fireRate *= (1 + 0.55*tO);
+      // 극저체력(강한 연출): 아주 약한 관통 1회
+      if (tO >= 0.95) out.pierce = Math.max(out.pierce||0, 1);
+    }
+
+    return out;
+  }
+
+  function fireTurret(t, target){
+    const s = turretBase(t);
+    const dx = target.x - t.x, dy = target.y - t.y;
+    const d = Math.hypot(dx,dy) || 1;
+
+    const sp = s.projSpd * state.mods.turretProjMul;
+    state.projectiles.push({
+      kind: "turret",
+      x: t.x, y: t.y,
+      vx: dx/d * sp,
+      vy: dy/d * sp,
+      dmg: s.dmg,
+      splash: s.splash,
+      slow: s.slow,
+      life: 1.7,
+      r: 3.5,
+      pierce: (s.pierce||0),
+      chain: (s.chain||0),
+      chainRange: (s.chainRange||0),
+      chainMul: (s.chainMul||0),
+      hitSet: null
+    });
+
+    fxRing(t.x,t.y, 6, 26, "#a7f3d0");
+
+    sfxShoot();
+  }
+
+  
+  function enemyShoot(e){
+    const dx = CORE_POS.x - e.x, dy = CORE_POS.y - e.y;
+    const d = Math.hypot(dx,dy) || 1;
+    const sp = e.projSpd || 320;
+
+    state.projectiles.push({
+      kind: "enemy",
+      x: e.x, y: e.y,
+      vx: dx/d * sp,
+      vy: dy/d * sp,
+      dmg: (e.projDmg || 8) * (e.elite ? 1.10 : 1.0) * state.difficulty,
+      life: 2.2,
+      r: 3,
+      coreOpts: e.coreOpts || null
+    });
+
+    SFX.play("enemy_shoot");
+    fxRing(e.x, e.y, 6, 26, "#fbbf24");
+  }
+
+  function bombExplode(e){
+    SFX.play("blast");
+    fxRing(e.x, e.y, 16, e.explodeRad || 120, "#34d399");
+    fxText("폭발!", e.x, e.y - 16, "#34d399");
+
+    const dmg = (e.explodeDmg || 32) * (e.elite ? 1.10 : 1.0) * state.difficulty;
+    damageCore(dmg, e.coreOpts || null);
+
+    // 폭발 반경 내 포탑 파손(확률)
+    const rad = e.explodeRad || 120;
+    const chance = e.turretBreakChance || 0.35;
+    for (let j = state.turrets.length - 1; j >= 0; j--) {
+      const t = state.turrets[j];
+      if (dist(t.x,t.y, e.x,e.y) <= rad) {
+        if (Math.random() < chance) {
+          fxText("포탑 파손!", t.x, t.y - 10, "#ff9fb2");
+          fxRing(t.x,t.y, 10, 70, "#ff9fb2");
+          state.turrets.splice(j,1);
+        }
+      }
+    }
+  }
+
+function applyProjectileHit(p, hit){
+    hit.hp -= p.dmg;
+
+    // 체인(공명/과부하): 추가로 가까운 적 1명에게 전이
+    if ((p.chain||0) > 0 && state.enemies.length > 1) {
+      let best = null, bestD = 1e9;
+      const R = p.chainRange || 0;
+      if (R > 1) {
+        for (const e of state.enemies) {
+          if (e === hit) continue;
+          const d = dist(hit.x, hit.y, e.x, e.y);
+          if (d <= R && d < bestD) { bestD = d; best = e; }
+        }
+        if (best) {
+          const mul = clamp(p.chainMul||0.5, 0.1, 0.9);
+          best.hp -= p.dmg * mul;
+          fxRing(best.x, best.y, 6, 30, "#fdba74");
+          fxRing(hit.x, hit.y, 6, 30, "#fdba74");
+        }
+      }
+    }
+
+    if (p.slow > 0) {
+      const t = nowSec();
+      hit.slowMul = Math.min(hit.slowMul, 1 - p.slow);
+      hit.slowUntil = Math.max(hit.slowUntil, t + 1.2);
+    }
+
+    if (p.splash > 0) {
+      for (const e of state.enemies) {
+        if (p.hitSet && p.hitSet.has(e)) continue;
+        const d = dist(p.x,p.y, e.x,e.y);
+        if (d <= p.splash) {
+          const fall = 1 - (d / p.splash);
+          e.hp -= p.dmg * 0.65 * fall;
+        }
+      }
+      fxRing(p.x,p.y, 8, p.splash, "#93c5fd");
+    } else {
+      fxRing(p.x,p.y, 6, 36, "#93c5fd");
+    }
+  }
+
+  // ---------- FX ----------
+  function fxRing(x,y, r0, r1, color){ state.fx.push({ kind:"ring", x,y, t:0, dur:0.35, r0, r1, color }); }
+  function fxText(text,x,y,color){ state.fx.push({ kind:"text", x,y, t:0, dur:0.9, text, color }); }
+  function fxShieldWave(x,y, radius){ state.fx.push({ kind:"shieldWave", x,y, t:0, dur:0.42, r0:radius, r1:radius+68, color:"#60a5fa" }); }
+
+  // ---------- Blue Flames ----------
+  function spawnBlueFlame(intensity){
+    const baseX = CORE_POS.x + rand(-16, 16);
+    const baseY = CORE_POS.y + CORE_RADIUS*0.60 + rand(-3, 7);
+
+    const size = lerp(6, 20, intensity) * (0.85 + Math.random()*0.35);
+    const ttl  = lerp(0.35, 0.95, intensity) * (0.85 + Math.random()*0.3);
+
+    state.flames.push({
+      x: baseX, y: baseY,
+      vx: rand(-18, 18) * (0.4 + intensity),
+      vy: rand(-55, -145) * (0.6 + intensity),
+      life: 0, ttl,
+      size,
+      wobble: rand(0.8, 1.6),
+      phase: rand(0, Math.PI*2)
+    });
+  }
+
+  function updateBlueFlames(dt){
+    // ✅ 붕괴 중엔 즉시 제거
+    if (state.phase === "fail") {
+      state.flames.length = 0;
+      state.flameSpawnAcc = 0;
+      return;
+    }
+
+    const hpRatio = state.core.hp / state.core.hpMax;
+    const THRESH = 0.70;
+
+    if (hpRatio > THRESH) {
+      state.flames.length = 0;
+      state.flameSpawnAcc = 0;
+      return;
+    }
+
+    const intensity = clamp((THRESH - hpRatio) / THRESH, 0, 1);
+    const spawnPerSec = intensity * 28;
+    state.flameSpawnAcc += spawnPerSec * dt;
+
+    while (state.flameSpawnAcc >= 1) {
+      spawnBlueFlame(intensity);
+      state.flameSpawnAcc -= 1;
+    }
+
+    for (let i = state.flames.length - 1; i >= 0; i--) {
+      const f = state.flames[i];
+      f.life += dt;
+      f.phase += dt * f.wobble;
+      f.x += (f.vx + Math.sin(f.phase)*18) * dt;
+      f.y += f.vy * dt;
+      f.vx *= (1 - dt*0.9);
+      f.vy *= (1 - dt*0.15);
+      if (f.life >= f.ttl) state.flames.splice(i, 1);
+    }
+  }
+
+  function drawBlueFlames(){
+    for (const f of state.flames) {
+      const t = clamp(f.life / f.ttl, 0, 1);
+      const a = (1 - t) * 0.85;
+      const r = f.size * (1 - t*0.45);
+
+      ctx.save();
+      ctx.globalAlpha = a;
+
+      const g = ctx.createRadialGradient(f.x, f.y, 0, f.x, f.y, r*1.5);
+      g.addColorStop(0.00, `rgba(219,234,254,${a})`);
+      g.addColorStop(0.35, `rgba(147,197,253,${a*0.9})`);
+      g.addColorStop(1.00, `rgba(96,165,250,0)`);
+      ctx.fillStyle = g;
+
+      ctx.beginPath();
+      ctx.arc(f.x, f.y, r*1.25, 0, Math.PI*2);
+      ctx.fill();
+
+      ctx.globalAlpha = a*0.95;
+      ctx.fillStyle = `rgba(96,165,250,${a})`;
+      ctx.beginPath();
+      ctx.ellipse(f.x, f.y, r*0.55, r*0.95, 0, 0, Math.PI*2);
+      ctx.fill();
+
+      ctx.restore();
+    }
+  }
+
+  // ---------- Collapse / Debris ----------
+  function spawnDebrisBurst(){
+    for (let i=0;i<90;i++){
+      const ang = rand(0, Math.PI*2);
+      const spd = rand(90, 520);
+      const r = rand(2.2, 7.2);
+      const blue = Math.random() < 0.72;
+
+      state.debris.push({
+        x: CORE_POS.x + rand(-10,10),
+        y: CORE_POS.y + rand(-10,10),
+        vx: Math.cos(ang)*spd,
+        vy: Math.sin(ang)*spd - rand(60,220),
+        r,
+        rot: rand(0, Math.PI*2),
+        vr: rand(-10, 10),
+        life: 0,
+        ttl: rand(1.0, 2.4),
+        color: blue ? "rgba(147,197,253,1)" : "rgba(230,208,122,1)"
+      });
+    }
+  }
+
+  function updateDebris(dt){
+    for (let i=state.debris.length-1;i>=0;i--){
+      const d = state.debris[i];
+      d.life += dt;
+
+      d.vy += 560 * dt;
+      d.vx *= (1 - dt*0.25);
+      d.vy *= (1 - dt*0.05);
+
+      d.x += d.vx * dt;
+      d.y += d.vy * dt;
+      d.rot += d.vr * dt;
+
+      const ground = CORE_POS.y + 150;
+      if (d.y > ground) {
+        d.y = ground;
+        d.vy *= -0.25;
+        d.vx *= 0.65;
+      }
+
+      if (d.life >= d.ttl) state.debris.splice(i,1);
+    }
+  }
+
+  function drawDebris(){
+    for (const d of state.debris){
+      const t = clamp(d.life / d.ttl, 0, 1);
+      const a = (1 - t) * 0.95;
+
+      ctx.save();
+      ctx.globalAlpha = a;
+      ctx.translate(d.x, d.y);
+      ctx.rotate(d.rot);
+
+      ctx.fillStyle = d.color;
+      ctx.beginPath();
+      ctx.moveTo(0, -d.r);
+      ctx.lineTo(d.r*0.9, 0);
+      ctx.lineTo(0, d.r);
+      ctx.lineTo(-d.r*0.9, 0);
+      ctx.closePath();
+      ctx.fill();
+
+      ctx.restore();
+    }
+  }
+
+  function drawBlueExplosionFlash(){
+    if (!(state.phase === "fail" && state.collapse)) return;
+    const t = state.collapse.boomT;
+
+    const flashDur = 0.28;
+    if (t < flashDur) {
+      const k = 1 - (t / flashDur);
+      const a = 0.75 * k;
+      const r = lerp(120, 520, 1 - k);
+
+      ctx.save();
+      ctx.globalAlpha = a;
+      ctx.globalCompositeOperation = "lighter";
+
+      const g = ctx.createRadialGradient(CORE_POS.x, CORE_POS.y, 0, CORE_POS.x, CORE_POS.y, r);
+      g.addColorStop(0.00, "rgba(219,234,254,1)");
+      g.addColorStop(0.35, "rgba(147,197,253,0.85)");
+      g.addColorStop(1.00, "rgba(96,165,250,0)");
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, W, H);
+
+      ctx.restore();
+    }
+
+    const glowDur = 0.55;
+    if (t < glowDur) {
+      const k = 1 - (t / glowDur);
+      const a = 0.18 * k;
+      const r = lerp(240, 760, 1 - k);
+
+      ctx.save();
+      ctx.globalAlpha = a;
+
+      const g2 = ctx.createRadialGradient(CORE_POS.x, CORE_POS.y, 0, CORE_POS.x, CORE_POS.y, r);
+      g2.addColorStop(0.00, "rgba(96,165,250,1)");
+      g2.addColorStop(1.00, "rgba(96,165,250,0)");
+      ctx.fillStyle = g2;
+      ctx.fillRect(0, 0, W, H);
+      ctx.restore();
+    }
+  }
+
+  // ---------- Core Damage ----------
+  function triggerCollapse(){
+    if (state.phase === "fail") return;
+
+    // ✅ 붕괴 순간: 보호막/불꽃 즉시 제거
+    state.core.shield = 0;
+    state.core.aegisActiveUntil = 0;
+    state.flames.length = 0;
+    state.flameSpawnAcc = 0;
+
+    state.phase = "fail";
+    state.spawn = null;
+    state.autoStartAt = 0;
+
+    // 월드 정리(멈춤/버그 방지)
+    state.enemies.length = 0;
+    state.projectiles.length = 0;
+
+    state.collapse = { t:0, boomT:0, shake:1.25, fade:0 };
+
+    SFX.play("core_break");
+    SFX.play("boom");
+
+    fxText("수정탑 붕괴!", CORE_POS.x, CORE_POS.y - 12, "#93c5fd");
+    fxShieldWave(CORE_POS.x, CORE_POS.y, CORE_RADIUS + 18);
+    fxShieldWave(CORE_POS.x, CORE_POS.y, CORE_RADIUS + 22);
+    fxRing(CORE_POS.x, CORE_POS.y, CORE_RADIUS + 16, 360, "#93c5fd");
+    fxRing(CORE_POS.x, CORE_POS.y, CORE_RADIUS + 26, 520, "#60a5fa");
+    fxRing(CORE_POS.x, CORE_POS.y, CORE_RADIUS + 36, 680, "#dbeafe");
+
+    spawnDebrisBurst();
+
+    // 와이어는 즉시 올레드(HP=0)
+    wireTick(0);
+  }
+
+  function damageCore(amount, opts){
+    if (state.phase === "fail") return;
+    if (state.god) { return; }
+
+    const prevShield = state.core.shield;
+    const prevHP     = state.core.hp;
+
+    opts = opts || null;
+
+    // 코어 패시브: 방어/피해감소 계산
+    const hpFrac0 = state.core.hpMax>0 ? (state.core.hp/state.core.hpMax) : 1;
+
+    // 임계 과부하: 저체력 피해 감소 (HP 35%↓부터, 10%에서 최대 25%)
+    if (state.core.passiveId === "overload") {
+      const tO = clamp((0.35 - hpFrac0) / 0.25, 0, 1);
+      amount *= (1 - 0.25*tO);
+    }
+
+    // 옵션: 특정 공격이 방어력을 일부 무시/강화
+    const baseShieldArmor = state.core.shieldArmor;
+    const baseHpArmor     = state.core.hpArmor;
+
+    // 재건 코어: HP가 낮을수록 방어력 증가 (HP 70%↓부터, 0%에서 +10)
+    let passiveArmorBonus = 0;
+    if (state.core.passiveId === "rebuild") {
+      const hpFrac = state.core.hpMax>0 ? (state.core.hp/state.core.hpMax) : 1;
+      const tB = clamp((0.70 - hpFrac) / 0.70, 0, 1);
+      passiveArmorBonus = 10 * tB;
+    }
+
+    const baseAbsorbMul   = state.mods.shieldAbsorbMul;
+
+    const effShieldArmor = Math.max(0, (baseShieldArmor + passiveArmorBonus*0.65) * ((opts && opts.shieldArmorPierce) ? (1 - opts.shieldArmorPierce) : 1));
+    const effHpArmor     = Math.max(0, (baseHpArmor + passiveArmorBonus) * ((opts && opts.hpArmorPierce) ? (1 - opts.hpArmorPierce) : 1));
+    const effAbsorbMul   = (opts && opts.bypassShield) ? 0 : baseAbsorbMul;
+
+    let remain = amount;
+    if (opts && opts.shieldBonusMul && state.core.shield > 0.01) {
+      remain *= opts.shieldBonusMul;
+    }
+
+    // 1) 보호막 흡수 (+ 보호막 방어력)
+    // - shieldAbsorbMul: (0~1) 보호막이 흡수에 참여하는 비율 (이벤트로 0이 될 수 있음)
+    // - shieldArmor: 보호막에 들어가는 피해를 고정 감산 (피해를 HP로 "넘기지" 않고, 총 피해를 줄임)
+    if (state.core.shield > 0 && effAbsorbMul > 0) {
+      const mul = clamp(effAbsorbMul, 0, 1);
+
+      const shieldPortion = remain * mul;   // 보호막 쪽으로 들어가는 몫
+      const bypassPortion = remain - shieldPortion; // 보호막을 우회해서 HP로 바로 가는 몫
+
+      const shieldDmgWanted = Math.max((shieldPortion > 0.01 ? 1 : 0), shieldPortion - effShieldArmor); // 최소 1 피해
+      const absorbed = Math.min(state.core.shield, shieldDmgWanted);
+
+      state.core.shield -= absorbed;
+
+      const spill = shieldDmgWanted - absorbed; // 보호막이 부족해서 새는 피해
+      remain = bypassPortion + spill;
+
+      if (absorbed > 0.01) {
+        fxShieldWave(CORE_POS.x, CORE_POS.y, CORE_RADIUS + 18);
+        sfxShieldHit();
+      }
+
+      // 보호막이 0으로 떨어지는 순간
+      if (prevShield > 0 && state.core.shield <= 0.0001) {
+        state.core.shield = 0;
+        SFX.play("shield_break");
+      }
+    }
+
+    // 2) HP 피해 (+ 방어력)
+    if (remain > 0.01) {
+      const hpDmg = Math.max(1, remain - effHpArmor); // 최소 1 피해는 들어가게
+      state.core.hp -= hpDmg;
+
+      fxRing(CORE_POS.x, CORE_POS.y, CORE_RADIUS+8, CORE_RADIUS+70, "#60a5fa");
+
+      if (state.core.hp < prevHP) {
+        state.core.lastHpDamageAt = gameSec();
+        sfxHpHit();
+      }
+    }
+
+    // 통계: 실제로 깎인 총량(보호막+HP)
+    const shLost = Math.max(0, prevShield - state.core.shield);
+    const hpLost = Math.max(0, prevHP - state.core.hp);
+    if (hpLost > 0.001) state.core.hpDirectDamaged = true;
+    state.stats.damageTaken = (state.stats.damageTaken||0) + shLost + hpLost;
+
+    // 공명 반격: 실제로 피해를 입었으면 스택 +1 (최대 20)
+    if (state.core.passiveId === "resonance") {
+      const lost = shLost + hpLost;
+      if (lost > 0.01) {
+        state.core.passiveStacks = clamp((state.core.passiveStacks||0) + 1, 0, 20);
+        state.core.passiveLastHitAt = gameSec();
+      }
+    }
+
+    // 3) 붕괴
+    if (state.core.hp <= 0) {
+      state.core.hp = 0;
+      // 붕괴 시 보호막은 즉시 0
+      state.core.shield = 0;
+      triggerCollapse();
+    }
+  }
+
+  // ---------- Flow ----------
+  function startWave(){
+    if (state.phase === "fail") return;
+
+    if (!state.core.passiveId) { setMsg("코어 패시브를 먼저 선택하세요 (3개 중 1개).", 2.2); return; }
+
+    SFX.play("wave");
+
+    resetMods();
+    state.event = chooseEvent();
+    if (state.event) {
+      state.event.apply(state);
+      state.eventTextTimer = 3.2;
+      fxText(`이벤트: ${state.event.name}`, CORE_POS.x, CORE_POS.y - 92, "#fbbf24");
+    }
+
+    state.phase = "wave";
+    if (state.wave === FINAL_WAVE) {
+      fxText("최종 웨이브!", CORE_POS.x, CORE_POS.y - 92, "#93c5fd");
+    }
+    state.spawn = { spec: waveSpec(state.wave), spawned: 0, nextSpawnIn: 0 };
+    state.crystals += Math.floor(10 + state.wave*2);
+  }
+
+  function clearWave(){
+    if (state.phase === "fail") return;
+
+    // FINAL WAVE clear -> Victory ending
+    if (!state.isInfinite && state.wave >= FINAL_WAVE) { triggerWin(); return; }
+
+    SFX.play("clear");
+    state.phase = "clear";
+    state.autoStartAt = gameSec() + state.autoStartDelay;
+    state.wave += 1;
+    state.crystals += Math.floor(25 + state.wave*3);
+    fxText("웨이브 클리어!", CORE_POS.x, CORE_POS.y - 72, "#a7f3d0");
+  }
+
+  function triggerWin(){
+  if (state.phase === "fail") return;
+  state.phase = "win";
+  state.win = {
+    t: 0,
+    stage: 0,
+    beam: 0,
+    rings: [
+      {t:0, delay:0.0},
+      {t:0, delay:0.45},
+      {t:0, delay:0.90},
+    ],
+    flash: 0,
+  };
+
+  // freeze spawns / enemies: keep them for dissolve
+  if (state.spawn) state.spawn = null;
+  for (const e of state.enemies) {
+    e.vx = 0; e.vy = 0;
+    e.dissolve = 0;
+    e.hitByCleanse = false;
+  }
+
+  // stats snapshot
+  state.stats.finalWave = FINAL_WAVE;
+  state.stats.runEnd = nowSec();
+
+  // SFX: long(er) crystal break + boom -> then clear
+  SFX.play("core_break");
+  setTimeout(()=>{ try { ensureAudio(); SFX.play("boom"); } catch {} }, 150);
+  setTimeout(()=>{ try { ensureAudio(); SFX.play("clear"); } catch {} }, 650);
+
+  // UI message
+  state.uiMsg = "정화 완료 시퀀스 시작...";
+  state.uiMsgUntil = nowSec() + 3.0;
+}
+
+function continueInfinite(){
+  // after victory: continue with infinite waves starting at FINAL_WAVE+1
+  state.isInfinite = true;
+  state.win = null;
+  state.phase = "clear";
+  state.wave = FINAL_WAVE + 1;
+  state.enemies.length = 0;
+  state.fx.length = 0;
+  state.autoStartAt = gameSec() + state.autoStartDelay;
+  fxText("무한 웨이브 모드", CORE_POS.x, CORE_POS.y - 72, "#a7f3d0");
+}
+
+function newGamePlus(){
+  // simple NG+: difficulty up, restart
+  state.ngPlus = (state.ngPlus|0) + 1;
+  const keepNg = state.ngPlus;
+  restart();
+  state.ngPlus = keepNg;
+  state.difficulty = clamp(state.difficulty * 1.15, 0.6, 2.0);
+  state.crystals += 30; // small bonus
+  state.uiMsg = `New Game+ ${state.ngPlus} (난이도 ${state.difficulty.toFixed(2)})`;
+  state.uiMsgUntil = nowSec() + 3.0;
+}
+
+function updateWin(dt){
+  if (!state.win) return;
+  const w = state.win;
+  w.t += dt;
+
+  // stage timings
+  // 0: pre-pulse (0~1.2), 1: beam (1.2~2.7), 2: rings+dissolve (2.7~5.2), 3: end screen (5.2+)
+  if (w.t < 1.2) w.stage = 0;
+  else if (w.t < 2.7) w.stage = 1;
+  else if (w.t < 5.2) w.stage = 2;
+  else w.stage = 3;
+
+  // flash for first second
+  w.flash = Math.max(0, 1 - w.t*1.6);
+
+  // beam grow
+  if (w.stage >= 1) {
+    const t = clamp((w.t - 1.2) / 1.3, 0, 1);
+    w.beam = t;
+  }
+
+  // rings
+  if (w.stage >= 2) {
+    for (const r of w.rings) {
+      r.t += dt;
+    }
+    // dissolve enemies as rings pass
+    const maxR = Math.max(...w.rings.map(r=> ringRadius(r)));
+    for (const e of state.enemies) {
+      if (!e.hitByCleanse) {
+        const d = dist(e.x,e.y, CORE_POS.x, CORE_POS.y);
+        if (d <= maxR + 4) {
+          e.hitByCleanse = true;
+        }
+      }
+      if (e.hitByCleanse) {
+        e.dissolve = clamp((e.dissolve || 0) + dt*1.25, 0, 1);
+      }
+    }
+    // remove fully dissolved
+    for (let i=state.enemies.length-1;i>=0;i--){
+      const e = state.enemies[i];
+      if ((e.dissolve||0) >= 0.999) state.enemies.splice(i,1);
+    }
+  }
+
+  // keep shield stable and full-ish during ending (looks "resolved")
+  state.core.shield = clamp(state.core.shield + state.core.shieldRegen*0.6*dt, 0, state.core.shieldMax);
+
+  // fx update so particles keep running
+  for (let i = state.fx.length - 1; i >= 0; i--) {
+    const f = state.fx[i];
+    f.t += dt;
+    if (f.t >= f.dur) state.fx.splice(i,1);
+  }
+  state.eventTextTimer = Math.max(0, state.eventTextTimer - dt);
+}
+
+function ringRadius(r){
+  const t = Math.max(0, r.t - r.delay);
+  // fast expansion with fade later
+  return 30 + t*240;
+}
+
+function drawWinOverlay(){
+  if (!state.win) return;
+  const w = state.win;
+
+  // vignette
+  ctx.save();
+  ctx.globalAlpha = 0.28 + 0.22*Math.sin(w.t*2.1);
+  const g = ctx.createRadialGradient(CORE_POS.x, CORE_POS.y, 60, CORE_POS.x, CORE_POS.y, 360);
+  g.addColorStop(0, "rgba(96,165,250,0.0)");
+  g.addColorStop(1, "rgba(96,165,250,0.85)");
+  ctx.fillStyle = g;
+  ctx.fillRect(0,0,W,H);
+  ctx.restore();
+
+  // beam
+  if (w.stage >= 1) {
+    const a = 0.25 + 0.55*w.beam;
+    ctx.save();
+    ctx.globalAlpha = a;
+    const beamW = 34 + 40*w.beam;
+    const bx = CORE_POS.x - beamW/2;
+    const by = 0;
+    const bh = CORE_POS.y;
+    const bg = ctx.createLinearGradient(0, by, 0, bh);
+    bg.addColorStop(0, "rgba(96,165,250,0.0)");
+    bg.addColorStop(0.55, "rgba(96,165,250,0.65)");
+    bg.addColorStop(1, "rgba(96,165,250,0.95)");
+    ctx.fillStyle = bg;
+    ctx.fillRect(bx, by, beamW, bh);
+    // core glow
+    ctx.globalAlpha = a*0.8;
+    ctx.beginPath();
+    ctx.arc(CORE_POS.x, CORE_POS.y, CORE_RADIUS+26, 0, Math.PI*2);
+    ctx.fillStyle = "rgba(96,165,250,0.22)";
+    ctx.fill();
+    ctx.restore();
+  }
+
+  // cleanse rings
+  if (w.stage >= 2) {
+    ctx.save();
+    for (const rr of w.rings) {
+      const rad = ringRadius(rr);
+      const t = Math.max(0, rr.t - rr.delay);
+      const alpha = clamp(0.55 - t*0.18, 0, 0.55);
+      if (alpha <= 0) continue;
+      ctx.globalAlpha = alpha;
+      ctx.strokeStyle = "#60a5fa";
+      ctx.lineWidth = 6;
+      ctx.beginPath();
+      ctx.arc(CORE_POS.x, CORE_POS.y, rad, 0, Math.PI*2);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  // flash (impact)
+  if (w.flash > 0.01) {
+    ctx.save();
+    ctx.globalAlpha = w.flash*0.35;
+    ctx.fillStyle = "#93c5fd";
+    ctx.fillRect(0,0,W,H);
+    ctx.restore();
+  }
+
+  // end screen text
+  if (w.stage >= 3) {
+    ctx.save();
+    ctx.globalAlpha = 0.92;
+    ctx.fillStyle = "rgba(15,23,42,0.72)";
+    ctx.fillRect(0,0,W,H);
+
+    ctx.fillStyle = "#e5e7eb";
+    ctx.font = "700 44px system-ui, sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillText("정화 완료", W/2, 150);
+
+    ctx.font = "500 16px system-ui, sans-serif";
+    ctx.fillStyle = "#cbd5e1";
+    ctx.fillText("침식 주파수가 뒤집혔습니다. 지역은 안전해졌습니다.", W/2, 182);
+
+    const tPlay = Math.max(0, (state.stats.runEnd || nowSec()) - (state.stats.runStart || nowSec()));
+    const lines = [
+      `도달 웨이브: ${FINAL_WAVE}`,
+      `총 처치: ${state.stats.kills|0}`,
+      `받은 피해: ${Math.round(state.stats.damageTaken)|0}`,
+      `수리 횟수: ${state.stats.repairs|0}`,
+      `플레이 시간: ${formatTime(tPlay)}`
+    ];
+
+    ctx.font = "600 18px system-ui, sans-serif";
+    ctx.fillStyle = "#e2e8f0";
+    let y = 240;
+    for (const ln of lines){
+      ctx.fillText(ln, W/2, y);
+      y += 26;
+    }
+
+    ctx.font = "600 16px system-ui, sans-serif";
+    ctx.fillStyle = "#93c5fd";
+    ctx.fillText("[웨이브 시작] : 무한 웨이브  |  [재시작] : New Game+", W/2, H - 90);
+
+    ctx.restore();
+  }
+}
+
+function formatTime(sec){
+  const s = Math.floor(sec % 60);
+  const m = Math.floor((sec/60) % 60);
+  const h = Math.floor(sec/3600);
+  if (h > 0) return `${h}:${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}`;
+  return `${m}:${String(s).padStart(2,"0")}`;
+}
+
+function restart(){
+    state.gtime = 0;
+    state.lastTime = nowSec();
+    state.wave = 1;
+    state.phase = "build";
+    state.crystals = 80;
+    state.selected = "basic";
+
+    state.enemies.length = 0;
+    state.turrets.length = 0;
+    state.projectiles.length = 0;
+    state.fx.length = 0;
+
+    state.flames.length = 0;
+    state.flameSpawnAcc = 0;
+
+    state.debris.length = 0;
+    state.collapse = null;
+
+    state.event = null;
+    state.eventTextTimer = 0;
+    resetMods();
+
+    // core base values -> upgrades 반영
+    state.core.hpMax = CORE_BASE.hpMax; state.core.hp = CORE_BASE.hpMax;
+    state.core.shieldMax = CORE_BASE.shieldMax; state.core.shield = CORE_BASE.shieldMax;
+    state.core.shieldRegen = CORE_BASE.shieldRegen;
+    state.core.hpArmor = CORE_BASE.hpArmor;
+    state.core.shieldArmor = CORE_BASE.shieldArmor;
+    state.core.repairCost = CORE_BASE.repairCost;
+    state.core.repairAmount = CORE_BASE.repairAmount;
+    state.core.repairCd = CORE_BASE.repairCd;
+    state.upg = { coreHp:0, coreShield:0, hpArmor:0, shieldArmor:0, shieldRegen:0, repair:0, turretDmg:0, turretFire:0, turretRange:0, slowPower:0, splashRadius:0 };
+    applyUpgrades();
+    state.core.aegisReadyAt = 0;
+    state.core.aegisActiveUntil = 0;
+
+    state.spawn = null;
+    state.autoStartAt = 0;
+
+        // 코어 패시브: 재시작 시 다시 선택
+    state.core.passiveId = null;
+    state.core.passiveStacks = 0;
+    state.core.passiveLastHitAt = gameSec();
+    state.core.passiveStackDecayAcc = 0;
+    refreshCorePassiveUI();
+
+// ✅ 와이어 리셋: 세그먼트까지 리셋(재시작 검정선 버그 방지)
+    wireReset();
+    wireTick(1); // full green
+  }
+
+  // ---------- Update ----------
+  function update(dt){
+    state.time += dt;
+
+    // 붕괴 상태
+    if (state.phase === "fail" && state.collapse) {
+      state.collapse.t += dt;
+      state.collapse.boomT += dt;
+      state.collapse.shake = Math.max(0, 1 - state.collapse.t*0.9);
+      state.collapse.fade  = clamp((state.collapse.t - 0.65) / 1.2, 0, 1);
+
+      // ✅ 붕괴 중: 보호막/불꽃 완전 제거 고정
+      state.core.shield = 0;
+      state.flames.length = 0;
+      state.flameSpawnAcc = 0;
+
+      updateDebris(dt);
+
+      for (let i = state.fx.length - 1; i >= 0; i--) {
+        const f = state.fx[i];
+        f.t += dt;
+        if (f.t >= f.dur) state.fx.splice(i,1);
+      }
+      state.eventTextTimer = Math.max(0, state.eventTextTimer - dt);
+
+      wireTick(0);
+      return;
+    }
+
+    // 정상 상태
+    // 승리 엔딩 상태
+    if (state.phase === "win" && state.win) {
+      updateWin(dt);
+      wireTick(state.core.hp / state.core.hpMax);
+      return;
+    }
+
+    updateBlueFlames(dt);
+    // shield regen
+    // 기본: 웨이브 중에만 보호막이 자동 재생됩니다.
+    // (원하시면 state.core.shieldRegenOutOfWave 를 true로 바꾸면, 웨이브 밖에서도 재생됩니다.)
+    if (state.phase === "wave" || state.core.shieldRegenOutOfWave) {
+      const t = nowSec();
+      const regenBoost = (t < state.core.aegisActiveUntil) ? 3.2 : 1.0;
+      let passiveShieldRegenMul = 1.0;
+      if (state.core.passiveId === "overload") {
+        const hpFrac = state.core.hpMax>0 ? (state.core.hp/state.core.hpMax) : 1;
+        const tO = clamp((0.40 - hpFrac) / 0.30, 0, 1);
+        passiveShieldRegenMul *= (1 + 1.10*tO); // 최대 +110%
+      }
+      const regen = state.core.shieldRegen * state.mods.shieldRegenMul * regenBoost * passiveShieldRegenMul;
+      state.core.shield = clamp(state.core.shield + regen*dt, 0, state.core.shieldMax);
+    }
+    // HP 자동 수리(옵션)
+    // - 기본은 OFF 입니다. (웨이브 끝나고 가만히 있어도 HP가 차는 걸 막기 위해)
+    // - 켜고 싶으면 state.core.passiveHpRegenEnabled = true 로 바꾸세요.
+    // 코어 패시브 기반 HP 자동 수리
+    // ✅ 1번(재건 코어): HP가 깎여있으면 자동 회복
+    // ✅ 웨이브 시작 전(build/clear)에는 자동 회복 없음 (보호막과 동일한 운영)
+    const hpRegenWanted = (state.core.passiveId === "rebuild");
+    const hpRegenAllowPhase = (state.phase === "wave");
+
+    if (hpRegenWanted && hpRegenAllowPhase && state.core.hp < state.core.hpMax) {
+      const since = gameSec() - state.core.lastHpDamageAt;
+      if (since >= state.core.hpRegenDelay) {
+        state.core.hp = clamp(state.core.hp + state.core.hpRegenPerSec*dt, 0, state.core.hpMax);
+        if (state.core.hp >= state.core.hpMax - 0.001) state.core.hpDirectDamaged = false;
+      }
+
+    // 공명 반격: 피격이 없으면 스택이 천천히 감소 (5초마다 -1)
+    if (state.core.passiveId === "resonance") {
+      const since = gameSec() - (state.core.passiveLastHitAt||0);
+      if (since > 3.0 && state.core.passiveStacks > 0) {
+        state.core.passiveStackDecayAcc = (state.core.passiveStackDecayAcc||0) + dt;
+        while (state.core.passiveStackDecayAcc >= 5.0 && state.core.passiveStacks > 0) {
+          state.core.passiveStacks--;
+          state.core.passiveStackDecayAcc -= 5.0;
+        }
+      } else {
+        state.core.passiveStackDecayAcc = 0;
+      }
+    }
+
+    }
+
+    
+    // auto-start next wave (clear phase)
+    if (state.phase === "clear" && state.autoStartAt > 0) {
+      if (gameSec() >= state.autoStartAt) {
+        state.autoStartAt = 0;
+        startWave();
+      }
+    }
+
+    // wave spawn
+
+    if (state.phase === "wave" && state.spawn) {
+      const sp = state.spawn;
+      const spec = sp.spec;
+      sp.nextSpawnIn -= dt;
+
+      const rate = spec.spawnRate * state.difficulty;
+      while (sp.spawned < spec.count && sp.nextSpawnIn <= 0) {
+        spawnEnemy(spec, sp.spawned);
+        sp.spawned++;
+        sp.nextSpawnIn += 1 / rate;
+      }
+      if (sp.spawned >= spec.count && state.enemies.length === 0) clearWave();
+    }
+
+    // turrets
+    for (const tr of state.turrets) {
+      const s = turretBase(tr);
+      const fireRate = s.fireRate * state.mods.turretFireMul;
+      tr.cd -= dt;
+
+      let best = null, bestScore = Infinity;
+      for (const e of state.enemies) {
+        const d = dist(tr.x,tr.y, e.x,e.y);
+        if (d > s.range) continue;
+        const dCore = dist(e.x,e.y, CORE_POS.x, CORE_POS.y);
+        const score = dCore*0.9 + d*0.25;
+        if (score < bestScore) { bestScore = score; best = e; }
+      }
+      if (best && tr.cd <= 0) {
+        fireTurret(tr, best);
+        tr.cd = 1 / fireRate;
+      }
+    }
+
+    // projectiles
+    for (let i = state.projectiles.length - 1; i >= 0; i--) {
+      const p = state.projectiles[i];
+      p.x += p.vx * dt;
+      p.y += p.vy * dt;
+      p.life -= dt;
+
+      // enemy projectile -> hit core
+      if (p.kind === "enemy") {
+        const dCore = dist(p.x,p.y, CORE_POS.x, CORE_POS.y);
+        if (dCore <= CORE_RADIUS + p.r) {
+          damageCore(p.dmg, p.coreOpts || null);
+          fxRing(CORE_POS.x, CORE_POS.y, CORE_RADIUS+8, CORE_RADIUS+68, "#fbbf24");
+          state.projectiles.splice(i,1);
+          continue;
+        }
+      }
+
+      let hit = null;
+      if (p.kind !== "enemy") {
+        for (const e of state.enemies) {
+        if (dist(p.x,p.y, e.x,e.y) <= e.r + p.r) { hit = e; break; }
+        }
+      }
+
+      if (hit) {
+        applyProjectileHit(p, hit);
+
+        // 관통(pierce): 남아있으면 제거하지 않고 계속 진행
+        if ((p.pierce||0) > 0) {
+          p.pierce--;
+          if (!p.hitSet) p.hitSet = new Set();
+          p.hitSet.add(hit);
+          // 살짝 앞으로 밀어서 같은 적을 바로 재타격하는 현상 완화
+          p.x += p.vx * 0.01;
+          p.y += p.vy * 0.01;
+        } else {
+          state.projectiles.splice(i,1);
+        }
+        continue;
+      }
+
+      if (p.life <= 0 || p.x < -50 || p.x > W+50 || p.y < -50 || p.y > H+50) {
+        state.projectiles.splice(i,1);
+      }
+    }
+
+    // enemies
+    for (let i = state.enemies.length - 1; i >= 0; i--) {
+      const e = state.enemies[i];
+      const tt = nowSec();
+      if (tt > e.slowUntil) e.slowMul = 1.0;
+      if (typeof e.seedAng === 'number') e.seedAng += dt*0.35;
+
+      // core vector
+      let dx = CORE_POS.x - e.x;
+      let dy = CORE_POS.y - e.y;
+      let d = Math.hypot(dx,dy);
+      if (d < 0.0001) d = 0.0001;
+
+      // ✅ dx/dy가 0에 가까우면(코어 중심에 겹침) 방향이 사라져서 멈출 수 있습니다.
+      // 이 경우, 스폰 때 저장해둔 각도(seedAng)로 임의 방향을 부여합니다.
+      if (Math.abs(dx) + Math.abs(dy) < 1e-6) {
+        const ang = (typeof e.seedAng === 'number') ? e.seedAng : (Math.random()*Math.PI*2);
+        dx = Math.cos(ang);
+        dy = Math.sin(ang);
+        d = 1.0;
+      }
+
+      const spd = e.spd * e.slowMul;
+
+      // movement: melee -> rush, ranged -> hold distance + orbit
+      let vx = dx/d, vy = dy/d;
+
+      // ✅ 버그 수정: 적이 코어 중심에 겹쳐서 '멈춰 보이는' 현상 방지
+      // 코어 표면 근처에 도달하면 바깥으로 살짝 밀어내고, 표면을 따라 미끄러지듯 움직입니다.
+      const minDist = CORE_RADIUS + e.r + 6;
+      if (d < minDist) {
+        const nx = dx/d, ny = dy/d;
+        e.x = CORE_POS.x - nx * minDist;
+        e.y = CORE_POS.y - ny * minDist;
+
+        // 표면을 따라 이동(탱젠트)
+        const tx = -ny, ty = nx;
+        const dir = (typeof e.orbitDir === 'number') ? e.orbitDir : 1;
+        vx = tx * dir;
+        vy = ty * dir;
+
+        // 업데이트된 거리
+        dx = CORE_POS.x - e.x;
+        dy = CORE_POS.y - e.y;
+        d = Math.hypot(dx,dy) || minDist;
+      } else if (e.ranged && e.holdDist > 0 && d < e.holdDist) {
+        const tx = -vy, ty = vx; // tangent
+        const dir = (typeof e.orbitDir === 'number') ? e.orbitDir : 1;
+        vx = tx * dir;
+        vy = ty * dir;
+      }
+
+      e.x += vx * spd * dt;
+      e.y += vy * spd * dt;
+
+      // ranged shooting
+      if (e.ranged && d < e.shootRange) {
+        e.shotTimer -= dt;
+        if (e.shotTimer <= 0) {
+          enemyShoot(e);
+          e.shotTimer = e.shotCd * (0.85 + 0.30*Math.random());
+        }
+      }
+
+      const dCore = dist(e.x,e.y, CORE_POS.x, CORE_POS.y);
+
+      // bomber: explode on contact
+      if (e.bomber && dCore <= CORE_RADIUS + e.r + 6) {
+        bombExplode(e);
+        state.enemies.splice(i,1);
+        continue;
+      }
+
+      // melee touch damage
+      if (!e.ranged && dCore <= CORE_RADIUS + e.r + 8) {
+        e.touchCd -= dt;
+        if (e.touchCd <= 0) {
+          const base = (e.touchBase || 9) * (0.95 + 0.10*Math.random()) * state.difficulty;
+          damageCore(base, e.coreOpts || null);
+          if (state.phase === "fail") break;
+          e.touchCd = (e.touchInterval || 0.70) * (e.elite ? 0.82 : 1.0);
+        }
+      }
+
+      if (e.hp <= 0) {
+        const reward = Math.floor((e.reward || (e.elite ? 16 : 10)) * state.mods.rewardMul);
+        state.crystals += reward;
+        state.stats.kills = (state.stats.kills|0) + 1;
+        fxText(`+${reward}`, e.x, e.y - 6, "#a7f3d0");
+        fxRing(e.x,e.y, 8, 55, "#a7f3d0");
+        state.enemies.splice(i,1);
+      }
+    }
+
+    // fx
+    for (let i = state.fx.length - 1; i >= 0; i--) {
+      const f = state.fx[i];
+      f.t += dt;
+      if (f.t >= f.dur) state.fx.splice(i,1);
+    }
+
+    state.eventTextTimer = Math.max(0, state.eventTextTimer - dt);
+
+    wireTick(state.core.hp / state.core.hpMax);
+  }
+
+  // ---------- Draw ----------
+  function draw(){
+    let shakeX = 0, shakeY = 0;
+    if (state.phase === "fail" && state.collapse) {
+      const s = state.collapse.shake * 10;
+      shakeX = rand(-s, s);
+      shakeY = rand(-s, s);
+    }
+
+    ctx.setTransform(1,0,0,1,0,0);
+    ctx.clearRect(0,0,W,H);
+
+    ctx.save();
+    ctx.translate(shakeX, shakeY);
+
+    // background
+    ctx.fillStyle = "#0b0f14";
+    ctx.fillRect(-shakeX,-shakeY,W,H);
+
+    // grid
+    ctx.globalAlpha = 0.15;
+    ctx.strokeStyle = "#233047";
+    ctx.lineWidth = 1;
+    for (let x=0;x<=W;x+=32){ ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,H); ctx.stroke(); }
+    for (let y=0;y<=H;y+=32){ ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(W,y); ctx.stroke(); }
+    ctx.globalAlpha = 1;
+
+    // build radius
+    ctx.globalAlpha = 0.16;
+    ctx.beginPath();
+    ctx.arc(CORE_POS.x, CORE_POS.y, BUILD_RADIUS, 0, Math.PI*2);
+    ctx.fillStyle = "#1f2937";
+    ctx.fill();
+    ctx.globalAlpha = 1;
+
+    if (state.debris.length) drawDebris();
+
+    drawCore();
+
+    for (const t of state.turrets) drawTurret(t);
+    for (const e of state.enemies) drawEnemy(e);
+    for (const p of state.projectiles) {
+      ctx.beginPath();
+      ctx.arc(p.x,p.y, p.r, 0, Math.PI*2);
+      ctx.fillStyle = (p.kind==="enemy" ? "#fbbf24" : (p.slow>0 ? "#a7f3d0" : "#93c5fd"));
+      ctx.fill();
+    }
+    for (const f of state.fx) drawFx(f);
+
+    // placement ghost
+    if (state.phase === "build" || state.phase === "clear") drawGhost();
+
+    ctx.restore();
+
+    // explosion flash on top
+    drawBlueExplosionFlash();
+
+    drawTopHUD();
+
+    if (state.phase === "win") drawWinOverlay();
+
+    if (state.hardError) banner(`오류: ${state.hardError}`, "#fca5a5");
+
+    if (state.phase === "build") banner("설치 단계: 포탑 배치 후 [웨이브 시작]을 누르십시오.", "#93c5fd");
+    if (state.phase === "clear") banner("웨이브 클리어! 배치 후 [웨이브 시작]으로 진행하십시오.", "#a7f3d0");
+    if (state.phase === "fail")  banner("수정탑 붕괴! R 또는 [재시작]으로 다시 시작하십시오.", "#93c5fd");
+    if (state.phase === "win" && state.win && state.win.stage < 3) banner("정화 시퀀스 진행 중...", "#93c5fd");
+    if (state.event && state.eventTextTimer > 0) banner(`이벤트: ${state.event.name} — ${state.event.desc}`, "#fbbf24");
+
+    drawWireStatusPanel(state.core.hp / state.core.hpMax, state.core.shield / state.core.shieldMax);
+  }
+
+  function drawCore(){
+    // 붕괴 중: 코어 페이드아웃
+    let alpha = 1.0;
+    if (state.phase === "fail" && state.collapse) {
+      alpha = 1.0 - clamp(state.collapse.t / 0.22, 0, 1);
+    }
+
+    // shadow
+    ctx.save();
+    ctx.globalAlpha = 0.22 * alpha;
+    ctx.beginPath();
+    ctx.ellipse(CORE_POS.x, CORE_POS.y + CORE_RADIUS + 18, 64, 18, 0, 0, Math.PI*2);
+    ctx.fillStyle = "#000";
+    ctx.fill();
+    ctx.restore();
+
+    // core image
+    if (alpha > 0.01) {
+      if (coreIconReady) {
+        const size = 140;
+        ctx.save();
+        ctx.globalAlpha = alpha;
+        ctx.drawImage(coreIcon, CORE_POS.x - size/2, CORE_POS.y - size/2, size, size);
+        ctx.restore();
+      } else {
+        ctx.save();
+        ctx.globalAlpha = alpha;
+        ctx.fillStyle = "#60a5fa";
+        ctx.beginPath();
+        ctx.arc(CORE_POS.x, CORE_POS.y, 20, 0, Math.PI*2);
+        ctx.fill();
+        ctx.restore();
+      }
+    }
+
+    // faint shield glow only when alive + shield>0
+    const shR = clamp(state.core.shield / state.core.shieldMax, 0, 1);
+    if (state.phase !== "fail" && shR > 0.001) {
+      ctx.save();
+      ctx.globalAlpha = 0.06 + 0.10*shR;
+      ctx.strokeStyle = "rgba(96,165,250,0.9)";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(CORE_POS.x, CORE_POS.y, 70, 0, Math.PI*2);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    // ✅ 불꽃은 살아있을 때만
+    if (state.phase !== "fail") drawBlueFlames();
+  }
+
+  function drawTurret(t){
+    const col = (t.type==="basic") ? "#93c5fd" : (t.type==="slow" ? "#a7f3d0" : "#93c5fd");
+
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(t.x,t.y, 13, 0, Math.PI*2);
+    ctx.fillStyle = "#111826";
+    ctx.fill();
+    ctx.strokeStyle = "#2a3b52";
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.arc(t.x,t.y, 8, 0, Math.PI*2);
+    ctx.fillStyle = col;
+    ctx.fill();
+
+    ctx.restore();
+  }
+
+  function drawEnemy(e){
+    const hpR = clamp(e.hp / e.hpMax, 0, 1);
+    ctx.save();
+
+    ctx.beginPath();
+    ctx.arc(e.x,e.y, e.r, 0, Math.PI*2);
+    ctx.fillStyle = e.elite ? "#f59e0b" : (e.color || "#94a3b8");
+    ctx.fill();
+    ctx.strokeStyle = "#0b1220";
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    const w = e.r*2.2, h = 4;
+    ctx.globalAlpha = 0.9;
+    ctx.fillStyle = "#0b1220";
+    ctx.fillRect(e.x - w/2, e.y - e.r - 10, w, h);
+    ctx.fillStyle = e.elite ? "#fbbf24" : (e.color || "#a7f3d0");
+    ctx.fillRect(e.x - w/2, e.y - e.r - 10, w*hpR, h);
+
+    ctx.restore();
+  }
+
+  function drawFx(f){
+    const t = clamp(f.t / f.dur, 0, 1);
+
+    if (f.kind === "ring") {
+      const r = lerp(f.r0, f.r1, t);
+      ctx.save();
+      ctx.globalAlpha = (1 - t) * 0.8;
+      ctx.beginPath();
+      ctx.arc(f.x,f.y, r, 0, Math.PI*2);
+      ctx.strokeStyle = f.color;
+      ctx.lineWidth = 3;
+      ctx.stroke();
+      ctx.restore();
+      return;
+    }
+
+    if (f.kind === "text") {
+      ctx.save();
+      ctx.globalAlpha = (1 - t);
+      ctx.fillStyle = f.color;
+      ctx.font = "900 14px system-ui, -apple-system, Segoe UI, Roboto, sans-serif";
+      ctx.textAlign = "center";
+      ctx.fillText(f.text, f.x, f.y - 22*t);
+      ctx.restore();
+      return;
+    }
+
+    if (f.kind === "shieldWave") {
+      const r = lerp(f.r0, f.r1, t);
+      ctx.save();
+      ctx.globalAlpha = (1 - t) * 0.65;
+      ctx.beginPath();
+      ctx.ellipse(f.x, f.y, r*1.05, r*0.95, 0, 0, Math.PI*2);
+      ctx.strokeStyle = f.color;
+      ctx.lineWidth = 5;
+      ctx.stroke();
+
+      ctx.globalAlpha *= 0.8;
+      ctx.beginPath();
+      ctx.ellipse(f.x, f.y, r*0.78, r*0.68, 0, 0, Math.PI*2);
+      ctx.strokeStyle = "#93c5fd";
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      ctx.restore();
+      return;
+    }
+  }
+
+  function drawTopHUD(){
+    ctx.save();
+    ctx.globalAlpha = 0.92;
+    ctx.fillStyle = "#0e1624";
+    ctx.fillRect(12, 12, 936, 44);
+    ctx.strokeStyle = "#243040";
+    ctx.lineWidth = 1;
+    ctx.strokeRect(12, 12, 936, 44);
+
+    const sx = 26, sy = 26;
+
+    ctx.fillStyle = "#e6edf3";
+    ctx.font = "900 14px system-ui, -apple-system, Segoe UI, Roboto, sans-serif";
+    ctx.textAlign = "left";
+    ctx.fillText(`WAVE ${state.wave}  |  난이도 x${state.difficulty.toFixed(1)}`, sx, sy+4);
+
+    const tt = TURRET_TYPES[state.selected];
+    ctx.fillStyle = "#cbd5e1";
+    ctx.font = "800 12px system-ui, -apple-system, Segoe UI, Roboto, sans-serif";
+    ctx.fillText(`선택: ${tt.name} (비용 ${tt.cost}) — ${tt.desc}`, sx, sy+22);
+
+    const barX = 610, barY = 22, barW = 325;
+    drawBar(barX, barY,     barW, 10, state.core.hp/state.core.hpMax, "#93c5fd", "HP");
+    drawBar(barX, barY+16,  barW, 10, state.core.shield/state.core.shieldMax, "#60a5fa", "보호막");
+
+    const t = gameSec();
+    const cdLeft = Math.max(0, state.core.aegisReadyAt - t);
+    const repCdLeft = Math.max(0, state.core.repairReadyAt - t);
+
+    ctx.fillStyle = cdLeft>0 ? "#fbbf24" : "#a7f3d0";
+    ctx.font = "900 12px system-ui, -apple-system, Segoe UI, Roboto, sans-serif";
+    ctx.textAlign = "right";
+    ctx.fillText(cdLeft>0 ? `긴급 보호막 CD ${cdLeft.toFixed(1)}s` : `긴급 보호막 준비됨 (Space)`, barX+barW, barY+41);
+
+    ctx.restore();
+  }
+
+  function drawBar(x,y,w,h, ratio, color, label){
+    ratio = clamp(ratio,0,1);
+    ctx.save();
+    ctx.globalAlpha = 0.95;
+    ctx.fillStyle = "#0b1220";
+    ctx.fillRect(x,y,w,h);
+    ctx.fillStyle = color;
+    ctx.fillRect(x,y,w*ratio,h);
+    ctx.strokeStyle = "#243040";
+    ctx.strokeRect(x,y,w,h);
+    ctx.fillStyle = "#cbd5e1";
+    ctx.font = "900 10px system-ui, -apple-system, Segoe UI, Roboto, sans-serif";
+    ctx.textAlign = "left";
+    ctx.fillText(label, x+4, y+h-2);
+    ctx.restore();
+  }
+
+  function banner(text, color){
+    ctx.save();
+    ctx.globalAlpha = 0.92;
+    ctx.fillStyle = "#0e1624";
+    ctx.fillRect(12, H-54, 936, 42);
+    ctx.strokeStyle = "#243040";
+    ctx.strokeRect(12, H-54, 936, 42);
+    ctx.fillStyle = color;
+    ctx.font = "900 13px system-ui, -apple-system, Segoe UI, Roboto, sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillText(text, W/2, H-28);
+    ctx.restore();
+  }
+
+  function drawGhost(){
+    if (!mouse.inside) return;
+    const mx = mouse.x, my = mouse.y;
+    const tt = TURRET_TYPES[state.selected];
+    const dCore = dist(mx,my, CORE_POS.x, CORE_POS.y);
+
+    const ok = (
+      dCore <= BUILD_RADIUS &&
+      dCore >= CORE_RADIUS+30 &&
+      state.crystals >= tt.cost &&
+      !overlapsTurret(mx,my)
+    );
+
+    ctx.save();
+    ctx.globalAlpha = 0.22;
+    ctx.beginPath();
+    ctx.arc(mx,my, 13, 0, Math.PI*2);
+    ctx.fillStyle = ok ? "#93c5fd" : "#ff9fb2";
+    ctx.fill();
+
+    ctx.globalAlpha = 0.10;
+    ctx.beginPath();
+    ctx.arc(mx,my, tt.range, 0, Math.PI*2);
+    ctx.fillStyle = ok ? "#93c5fd" : "#ff9fb2";
+    ctx.fill();
+    ctx.restore();
+  }
+
+  function refreshUI(){
+    const tt = TURRET_TYPES[state.selected];
+    const t = gameSec();
+    const cdLeft = Math.max(0, state.core.aegisReadyAt - t);
+    const repCdLeft = Math.max(0, state.core.repairReadyAt - t);
+
+    // 패시브 표시
+    let passiveBadge = "";
+    if (state.core.passiveId) {
+      const d = CORE_PASSIVES[state.core.passiveId];
+      if (state.core.passiveId === "rebuild") {
+        const hpFrac = state.core.hpMax>0 ? (state.core.hp/state.core.hpMax) : 1;
+        const tB = clamp((0.70 - hpFrac) / 0.70, 0, 1);
+        const bonus = (10*tB);
+        passiveBadge = `<span class="badge ${d.colorClass}">패시브: ${d.name} (방어 +${bonus.toFixed(1)})</span> `;
+        const addHpArmor = bonus;
+        const addShArmor = bonus*0.65;
+        const effHpArmor = (state.core.hpArmor + addHpArmor);
+        const effShArmor = (state.core.shieldArmor + addShArmor);
+      } else if (state.core.passiveId === "resonance") {
+        passiveBadge = `<span class="badge ${d.colorClass}">패시브: ${d.name} (스택 ${state.core.passiveStacks|0}/20)</span> `;
+      } else if (state.core.passiveId === "overload") {
+        const hpFrac = state.core.hpMax>0 ? (state.core.hp/state.core.hpMax) : 1;
+        const tO = clamp((0.40 - hpFrac) / 0.30, 0, 1);
+        passiveBadge = `<span class="badge ${d.colorClass}">패시브: ${d.name} (과부하 ${(tO*100)|0}%)</span> `;
+      }
+      // 기본 방어 수치도 함께 표시(패시브 미선택/다른 패시브에서도 확인 가능)
+    } else {
+      passiveBadge = `<span class="badge">패시브: 미선택</span> `;
+    }
+
+    if (uiCrystals) uiCrystals.textContent = String(state.crystals|0);
+
+    
+    // ✅ 1번(재건 코어) 방어/보호막방어 상승 확인용 UI 값
+    const baseHpArmorUI = state.core.hpArmor;
+    const baseShArmorUI = state.core.shieldArmor;
+    let addHpArmorUI = 0;
+    let addShArmorUI = 0;
+    if (state.core.passiveId === "rebuild") {
+      const hpFrac = state.core.hpMax>0 ? (state.core.hp/state.core.hpMax) : 1;
+      const tB = clamp((0.70 - hpFrac) / 0.70, 0, 1);
+      addHpArmorUI = 10 * tB;
+      addShArmorUI = (10 * tB) * 0.65;
+    }
+    const effHpArmorUI = baseHpArmorUI + addHpArmorUI;
+    const effShArmorUI = baseShArmorUI + addShArmorUI;
+    const hpArmorText = (state.core.passiveId === "rebuild")
+      ? `${baseHpArmorUI} (+${addHpArmorUI.toFixed(1)} → ${effHpArmorUI.toFixed(1)})`
+      : `${baseHpArmorUI}`;
+    const shArmorText = (state.core.passiveId === "rebuild")
+      ? `${baseShArmorUI} (+${addShArmorUI.toFixed(1)} → ${effShArmorUI.toFixed(1)})`
+      : `${baseShArmorUI}`;
+
+uiStats.innerHTML =
+      `<span class="badge">Wave ${state.wave}</span> ` +      `<span class="badge">HP ${Math.ceil(state.core.hp)}/${state.core.hpMax}</span> ` +
+      `<span class="badge">보호막 ${Math.ceil(state.core.shield)}/${state.core.shieldMax}</span> ` +
+      `<span class="badge">방어 ${hpArmorText}</span> ` +
+      `<span class="badge">보호막방어 ${shArmorText}</span> ` +
+      passiveBadge +
+      `<span class="badge">배속 ${state.speed.toFixed(1)}x</span> ` +
+      `<span class="badge">${state.cheat ? "치트 ON" : "치트 OFF"}</span>`;
+
+    // UI message (업그레이드/안내) — 이벤트 정보에 덮어쓰이지 않게 분리
+    if (uiMsg) {
+      const tNow = nowSec();
+      if (state.uiMsg && tNow < state.uiMsgUntil) uiMsg.textContent = state.uiMsg;
+      else { state.uiMsg = ""; uiMsg.textContent = ""; }
+    }
+
+    // Repair 버튼 UI
+    if (typeof btnRepair !== 'undefined' && btnRepair) {
+      const affordable = state.crystals >= state.core.repairCost;
+      const canUse = (repCdLeft <= 0) && (state.phase !== 'fail') && (state.core.hp < state.core.hpMax - 0.01) && affordable;
+      btnRepair.disabled = !canUse;
+      btnRepair.textContent = repCdLeft>0 ? `수리 (${repCdLeft.toFixed(1)}s)` : `수리 (-${state.core.repairCost})`;
+    }
+
+    if (uiEvent) {
+      uiEvent.textContent = state.event
+        ? `현재 이벤트: ${state.event.name} — ${state.event.desc}`
+        : `현재 이벤트: 없음 (3웨이브마다 1회)`;
+    }
+// Wave button label + state
+    if (btnWave) {
+      if (state.phase === "wave") {
+        btnWave.disabled = true;
+        btnWave.textContent = "웨이브 진행 중...";
+      } else if (state.phase === "fail") {
+        btnWave.disabled = true;
+        btnWave.textContent = "붕괴됨";
+      } else if (state.phase === "win") {
+        btnWave.disabled = false;
+        btnWave.textContent = "무한 계속";
+      } else if (state.phase === "clear") {
+        const left = Math.max(0, state.autoStartAt - gameSec());
+        btnWave.disabled = false;
+        btnWave.textContent = left > 0.05 ? `다음 웨이브 (${left.toFixed(1)}s)` : "다음 웨이브 시작";
+      } else {
+        btnWave.disabled = false;
+        btnWave.textContent = "웨이브 시작";
+      }
+    }
+
+    
+    // Restart button label
+    if (btnRestart) {
+      btnRestart.textContent = (state.phase === "win") ? "New Game+" : "재시작";
+    }
+
+    // Speed/Cheat buttons + hint
+    if (btnSpeed) btnSpeed.textContent = `배속 ${state.speed.toFixed(2).replace(/\.00$/,".0")}x`;
+    if (btnCheat) btnCheat.textContent = state.cheat ? "치트 ON" : "치트 OFF";
+    if (uiCheat) {
+      uiCheat.textContent = state.cheat
+        ? "치트키: T=토글, K=크리스탈+500, H=HP풀, J=보호막풀, B=적삭제, N=웨이브스킵, U=업글MAX, G=무적"
+        : "";
+    }
+
+// 업그레이드 DOM을 매 프레임 갈아끼우면(60fps) 클릭이 씹힐 수 있어서, 0.25초마다만 갱신합니다.
+    if (!window.__upgLastRenderAt) window.__upgLastRenderAt = 0;
+    const _tNow = nowSec();
+    if (_tNow - window.__upgLastRenderAt > 0.25) {
+      window.__upgLastRenderAt = _tNow;
+      renderUpgrades();
+    }
+
+  }
+
+  // ---------- Wire Panel (손상 고정 + 재시작 검정선 버그 수정) ----------
+  const WG = "rgb(60,255,90)";
+  const WY = "rgb(255,230,90)";
+  const WR = "rgb(255,80,80)";
+  const SB = "rgb(60,200,255)";
+
+  const wire = {
+    segs: null,
+    outlinePolys: null,
+    cachedColors: [],
+    thY: [],
+    thR: [],
+    seed: 1337,
+    oneYellowIdx: -1,
+  };
+
+  function wireReset(){
+    wire.segs = null;
+    wire.outlinePolys = null;
+    wire.cachedColors = [];
+    wire.thY = [];
+    wire.thR = [];
+    wire.oneYellowIdx = -1;
+  }
+
+  function buildWireSegments(cx, cy, s){
+    const P = (nx,ny)=>({x: cx + nx*s, y: cy + ny*s});
+
+    const crystal = [P(0,-1.05),P(0.55,-0.35),P(0.52,0.60),P(0,1.10),P(-0.52,0.60),P(-0.55,-0.35)];
+    const ring    = [P(-1.05,0.10),P(1.05,0.10),P(1.12,0.32),P(-1.12,0.32)];
+    const leftW   = [P(-1.05,-0.65),P(-1.38,-0.10),P(-1.28,0.55),P(-1.02,0.98),P(-0.78,0.72),P(-0.86,0.08)];
+    const rightW  = [P(1.05,-0.65),P(1.38,-0.10),P(1.28,0.55),P(1.02,0.98),P(0.78,0.72),P(0.86,0.08)];
+
+    const cracks = [
+      [P(0,-0.82),P(0.18,-0.48)],
+      [P(0.18,-0.48),P(0.04,-0.14)],
+      [P(0.04,-0.14),P(0.22,0.22)],
+      [P(-0.16,-0.52),P(0,-0.34)],
+      [P(0,-0.34),P(-0.10,0.08)],
+      [P(-0.10,0.08),P(0.08,0.62)],
+    ];
+
+    function polySeg(points){
+      const segs=[];
+      for(let i=0;i<points.length;i++){
+        const a=points[i], b=points[(i+1)%points.length];
+        segs.push([a,b]);
+      }
+      return segs;
+    }
+
+    return {
+      outlinePolys: [crystal, leftW, rightW, ring],
+      segs: [
+        ...polySeg(crystal),
+        ...polySeg(ring),
+        ...polySeg(leftW),
+        ...polySeg(rightW),
+        ...cracks
+      ]
+    };
+  }
+
+  function wireEnsureGeometry(){
+    // ✅ 세그먼트가 있으나 캐시 길이가 안 맞으면 재초기화(검정선 방지)
+    if (wire.segs && wire.cachedColors.length === wire.segs.length && wire.thY.length === wire.segs.length) return;
+
+    const ww = wireCanvas.width, wh = wireCanvas.height;
+    const cx = ww*0.5, cy = wh*0.55;
+    const s  = Math.min(ww,wh)*0.38;
+
+    const shape = buildWireSegments(cx,cy,s);
+    wire.segs = shape.segs;
+    wire.outlinePolys = shape.outlinePolys;
+
+    wire.cachedColors = new Array(wire.segs.length).fill(WG);
+
+    const prng = mulberry32(wire.seed);
+    wire.thY = new Array(wire.segs.length);
+    wire.thR = new Array(wire.segs.length);
+    for (let i=0;i<wire.segs.length;i++){
+      const y = 0.06 + prng()*0.60;
+      let r = y + (0.14 + prng()*0.30);
+      r = Math.min(r, 0.98);
+      wire.thY[i] = y;
+      wire.thR[i] = r;
+    }
+  }
+
+  function shieldLW(ratio){
+    const maxW = 14, minW = 2;
+    return minW + (maxW-minW)*clamp(ratio,0,1);
+  }
+
+  function wireTick(hpRatio){
+    wireEnsureGeometry();
+
+    const sev = clamp(1 - hpRatio, 0, 1);
+
+    if (hpRatio <= 0) {
+      for (let i=0;i<wire.cachedColors.length;i++) wire.cachedColors[i] = WR;
+      return;
+    }
+
+    if (hpRatio >= 0.999999) {
+      for (let i=0;i<wire.cachedColors.length;i++) wire.cachedColors[i] = WG;
+      wire.oneYellowIdx = -1;
+      return;
+    }
+
+    if (hpRatio >= 0.99) {
+      if (wire.oneYellowIdx < 0) {
+        wire.oneYellowIdx = (Math.random() * wire.cachedColors.length) | 0;
+      }
+      for (let i=0;i<wire.cachedColors.length;i++) wire.cachedColors[i] = WG;
+      wire.cachedColors[wire.oneYellowIdx] = WY;
+      return;
+    }
+
+    for (let i=0;i<wire.cachedColors.length;i++){
+      let col =
+        (sev >= wire.thR[i]) ? WR :
+        (sev >= wire.thY[i]) ? WY :
+        WG;
+
+      if (i === wire.oneYellowIdx && col === WG) col = WY;
+      wire.cachedColors[i] = col;
+    }
+  }
+
+  function wStroke(a,b,color,lw,alpha=1){
+    wctx.save();
+    wctx.globalAlpha = alpha;
+    wctx.beginPath();
+    wctx.moveTo(a.x,a.y);
+    wctx.lineTo(b.x,b.y);
+    wctx.strokeStyle = color || WG; // ✅ safety
+    wctx.lineWidth = lw;
+    wctx.lineCap="round";
+    wctx.lineJoin="round";
+    wctx.stroke();
+    wctx.restore();
+  }
+
+  function wStrokePoly(poly,color,lw,alpha=1){
+    wctx.save();
+    wctx.globalAlpha = alpha;
+    wctx.beginPath();
+    wctx.moveTo(poly[0].x, poly[0].y);
+    for(let i=1;i<poly.length;i++) wctx.lineTo(poly[i].x, poly[i].y);
+    wctx.closePath();
+    wctx.strokeStyle = color;
+    wctx.lineWidth = lw;
+    wctx.lineCap="round";
+    wctx.lineJoin="round";
+    wctx.stroke();
+    wctx.restore();
+  }
+
+  function drawWireStatusPanel(hpRatio, shieldRatio){
+    wireEnsureGeometry();
+
+    const ww = wireCanvas.width, wh = wireCanvas.height;
+    wctx.clearRect(0,0,ww,wh);
+    wctx.fillStyle = "#000";
+    wctx.fillRect(0,0,ww,wh);
+
+    // 보호막(파란 테두리) — 닳을수록 얇아짐
+    if (shieldRatio > 0.001) {
+      const lw = shieldLW(shieldRatio);
+      wctx.save();
+      wctx.globalAlpha = 0.25 + 0.55*shieldRatio;
+      wctx.shadowColor = "rgba(80,220,255,0.65)";
+      wctx.shadowBlur  = 10 + 14*shieldRatio;
+      for (const poly of wire.outlinePolys) wStrokePoly(poly, SB, lw, 1);
+      wctx.restore();
+    }
+
+    // HP 와이어
+    const lwWire = 4.2;
+    for (let i=0;i<wire.segs.length;i++){
+      const [a,b] = wire.segs[i];
+      wStroke(a,b, wire.cachedColors[i], lwWire, 0.92);
+    }
+
+    const hpPct = Math.round(hpRatio*100);
+    const shPct = Math.round(shieldRatio*100);
+    wireText.textContent = `HP ${hpPct}% / 보호막 ${shPct}%`;
+  }
+
+  // ---------- Game Loop ----------
+  function tick(){
+    const t = nowSec();
+    const dtReal = clamp(t - state.lastTime, 0, 0.05);
+    state.lastTime = t;
+
+    // game time advances with speed multiplier
+    const dt = clamp(dtReal * (state.speed || 1), 0, 0.08);
+    state.gtime += dt;
+
+    try {
+      update(dt);
+      draw();
+      refreshUI();
+    } catch (err) {
+      console.error(err);
+      const msg = (err && err.message) ? err.message : String(err);
+      state.hardError = msg.slice(0, 140);
+      // 최소한 UI는 갱신되도록 시도
+      try { draw(); refreshUI(); } catch {}
+    }
+
+    requestAnimationFrame(tick);
+  }
+
+  // ---------- Init ----------
+  restart();
+  setSpeed(1.0);
+  tick();
+})();
+</script>
+</body>
+</html>
