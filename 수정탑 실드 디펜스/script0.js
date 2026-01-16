@@ -1,665 +1,3 @@
-<!doctype html>
-<html lang="ko">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Core Barrier Defense</title>
-  <style>
-    html, body { margin:0; padding:0; background:#070b10; color:#e6edf3; font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; }
-    body{
-      min-height:100vh;
-      background:
-        radial-gradient(1200px 800px at 20% 10%, rgba(76,195,255,0.10), rgba(0,0,0,0) 60%),
-        radial-gradient(900px 700px at 80% 30%, rgba(141,92,246,0.10), rgba(0,0,0,0) 65%),
-        radial-gradient(900px 700px at 50% 95%, rgba(0,255,184,0.06), rgba(0,0,0,0) 70%),
-        linear-gradient(180deg, #070b10 0%, #060a0f 100%);
-      overflow-x:hidden;
-
-    /* background scenes (A/B) */
-    body{
-      --bg-img: url('bg_sanctuary.png');
-      --bg-opacity: 0.42; /* low */
-      --bg-sat: 1.05;
-    }
-    body.bg-final{ --bg-img: url('bg_void.png'); }
-    body.bg-off{ --bg-opacity: 0; }
-    body.bg-low{ --bg-opacity: 0.42; }
-    body.bg-high{ --bg-opacity: 0.62; }
-    body::after{
-      content:"";
-      position:fixed;
-      inset:0;
-      pointer-events:none;
-      background-image: var(--bg-img);
-      background-size: cover;
-      background-position: center;
-      opacity: var(--bg-opacity);
-      filter: saturate(var(--bg-sat)) contrast(1.06);
-      z-index:-2;
-    }
-    body::before{ z-index:-1; }
-
-    }
-    /* subtle film grain (cheap, no image) */
-    body::before{
-      content:"";
-      position:fixed;
-      inset:0;
-      pointer-events:none;
-      background:
-        repeating-linear-gradient(0deg, rgba(255,255,255,0.03) 0, rgba(255,255,255,0.03) 1px, rgba(0,0,0,0) 2px, rgba(0,0,0,0) 4px);
-      opacity:0.06;
-      mix-blend-mode:overlay;
-    }
-    .wrap { display:flex; justify-content:center; padding:18px; gap:16px; flex-wrap:wrap; align-items:flex-start; }
-
-    .leftCol{ display:flex; flex-direction:column; gap:12px; align-items:flex-start; }
-
-    
-    :root{
-      /* PC 하단(와이어/업글) 패널 높이: 페이지 전체 스크롤을 만들지 않게 내부 스크롤로 처리 */
-      --bottomPanelH: 280px;
-    }
-
-    /* Desktop: place Wire + Upgrades side-by-side under the canvas */
-    .bottomRow{
-      display:flex;
-      gap:12px;
-      align-items:stretch;
-      flex-wrap:wrap;
-    }
-
-    /* PC: 와이어는 고정 폭, 업글은 남는 폭을 채움 + 둘 다 동일 높이 */
-    @media (min-width: 901px){
-      .bottomRow{ flex-wrap:nowrap; }
-      #wirePanel{ flex:0 0 360px; height: var(--bottomPanelH); display:flex; flex-direction:column; }
-      /* miniPanel 기본 width(360px)를 무시하고 남는 폭을 채우게 */
-      #upgPanelPC{ flex:1 1 auto; min-width:360px; width:auto; max-width:none; height: var(--bottomPanelH); display:flex; flex-direction:column; }
-      /* 업그레이드 목록은 패널 내부에서만 스크롤 */
-      #uiUpgradesPC{ flex:1 1 auto; display:flex; flex-direction:column; overflow:hidden; }
-      #uiUpgListPC{ flex:1 1 auto; overflow:auto; -webkit-overflow-scrolling:touch; padding-right:6px; }
-      /* 와이어 캔버스는 공간에 맞게 유지 */
-      #wire{ flex:0 0 auto; }
-      #wireText{ flex:0 0 auto; }
-    }
-
-    /* On desktop, hide the sidebar upgrade list and show the left-side one */
-    #upgPanelSide{ display:none; }
-    #upgPanelPC{ display:block; }
-
-    @media (max-width: 900px){
-      /* On mobile, keep upgrades in the sidebar (or mobile bar) */
-      #upgPanelSide{ display:block; }
-      #upgPanelPC{ display:none; }
-      .bottomRow{ flex-direction:column; }
-    }
-canvas { 
-      background:#070b10;
-      border:1px solid rgba(180,210,255,0.14);
-      border-radius:14px;
-      box-shadow:
-        0 18px 50px rgba(0,0,0,.45),
-        0 0 0 1px rgba(76,195,255,0.08) inset,
-        0 0 32px rgba(76,195,255,0.07);
-      position:relative;
-    }
-    /* glow frame */
-    canvas{ outline:none; }
-    canvas:focus{ box-shadow:
-        0 18px 50px rgba(0,0,0,.45),
-        0 0 0 2px rgba(76,195,255,0.22),
-        0 0 48px rgba(76,195,255,0.10);
-    }
-
-    /* ✅ 아래(따로) 와이어 상태창 */
-    .miniPanel{
-      width: 360px;
-      max-width: 92vw;
-      border:1px solid #243040;
-      border-radius:12px;
-      padding:10px;
-      background: rgba(255,255,255,0.035);
-      backdrop-filter: blur(10px);
-      -webkit-backdrop-filter: blur(10px);
-      box-shadow: 0 10px 30px rgba(0,0,0,.25);
-    }
-    .miniTitle{ font-weight:900; font-size:13px; margin:0 0 8px; color:#e6edf3; }
-    .miniText{ margin-top:6px; font-size:12px; color:#cbd5e1; font-variant-numeric: tabular-nums; }
-
-    .panel {
-      width: 380px; max-width: 92vw;
-      border:1px solid #243040; border-radius:12px; padding:14px 14px 12px;
-      background: rgba(255,255,255,0.035);
-      backdrop-filter: blur(10px);
-      -webkit-backdrop-filter: blur(10px);
-    }
-    .panel h1 { margin: 0 0 10px; font-size:16px; font-weight:900; }
-    .panel p { margin: 8px 0; font-size: 13px; line-height: 1.45; color:#cbd5e1; }
-    .row { display:flex; gap:10px; margin-top:10px; }
-    button {
-      flex:1;
-      padding:10px 12px;
-      border-radius:12px;
-      border:1px solid rgba(180,210,255,0.18);
-      background: linear-gradient(180deg, rgba(20,32,50,0.92), rgba(12,18,30,0.92));
-      color:#e6edf3;
-      cursor:pointer;
-      font-weight:950;
-      letter-spacing:0.2px;
-      box-shadow: 0 10px 24px rgba(0,0,0,.30), 0 0 0 1px rgba(76,195,255,0.06) inset;
-      transition: transform .08s ease, box-shadow .12s ease, border-color .12s ease, background .12s ease;
-    }
-    button:hover {
-      transform: translateY(-1px);
-      border-color: rgba(76,195,255,0.28);
-      box-shadow: 0 14px 30px rgba(0,0,0,.34), 0 0 0 1px rgba(76,195,255,0.10) inset, 0 0 26px rgba(76,195,255,0.08);
-    }
-    button:active{ transform: translateY(0px); }
-    button:focus{ outline:none; border-color: rgba(76,195,255,0.45); }
-    .small { font-size:12px; opacity:.92; color:#cbd5e1; }
-    .kbd { display:inline-block; border:1px solid #2a3b52; padding:1px 6px; border-radius:6px; background:#0e1624; font-weight:900; }
-    .stat { font-variant-numeric: tabular-nums; }
-    .sep { height:1px; background:#243040; margin:10px 0; opacity:.7; }
-    .badge { display:inline-block; padding:2px 8px; border:1px solid #2a3b52; border-radius:999px; background:#0e1624; font-size:12px; font-weight:900; }
-  
-    
-    .crystalHud{
-      display:flex; align-items:center; justify-content:space-between;
-      padding:10px 12px; border:1px solid #243040; border-radius:12px;
-      background: rgba(76,195,255,0.07);
-      box-shadow: inset 0 0 0 1px rgba(76,195,255,0.08);
-      margin: 10px 0 8px;
-    }
-    .crystalHud .crystalLabel{ font-size:12px; font-weight:900; color:#b9d9ff; letter-spacing:0.2px; }
-    .crystalHud .crystalValue{ font-size:18px; font-weight:1000; color:#eaf4ff; font-variant-numeric: tabular-nums; }
-.upgRow{ padding:8px 8px 10px; border:1px solid rgba(255,255,255,0.08); border-radius:12px; background:rgba(0,0,0,0.18); margin:8px 0; cursor:pointer; }
-    .upgRow:hover{ background:rgba(255,255,255,0.06); }
-    .upgRow.disabled{ opacity:0.55; cursor:not-allowed; }
-    .upgRow.disabled:hover{ background:rgba(0,0,0,0.18); }
-
-    .upgName{ display:flex; gap:8px; align-items:baseline; justify-content:space-between; }
-    .upgRight{ float:right; }
-    .upgDesc{ margin-top:6px; font-size:12px; color:rgba(215,227,255,0.75); line-height:1.25; }
-    .muted{ color:rgba(215,227,255,0.62); font-weight:700; font-size:12px; }
-    .miniBtn{ cursor:pointer; border-radius:10px; border:1px solid rgba(255,255,255,0.14); padding:6px 10px; background:rgba(255,255,255,0.06); color:#d7e3ff; font-weight:900; }
-    .miniBtn:disabled{ opacity:0.45; cursor:not-allowed; }
-    .miniBtn.isDisabled{ opacity:0.45; cursor:not-allowed; }
-
-
-/* --- Upgrade UI (탭/검색/섹션) --- */
-.upgControls{ display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin: 2px 0 10px; }
-.upgTabs{ display:flex; gap:6px; flex-wrap:wrap; }
-.upgTabBtn{
-  flex:0 0 auto;
-  padding:6px 10px;
-  border-radius:999px;
-  border:1px solid rgba(255,255,255,0.14);
-  background:rgba(255,255,255,0.05);
-  color:#d7e3ff;
-  font-weight:900;
-  font-size:12px;
-  cursor:pointer;
-}
-.upgTabBtn.active{ border-color: rgba(76,195,255,0.40); background: rgba(76,195,255,0.12); }
-.upgSearch{
-  flex:1 1 160px;
-  min-width:140px;
-  padding:8px 10px;
-  border-radius:10px;
-  border:1px solid rgba(255,255,255,0.14);
-  background:rgba(0,0,0,0.22);
-  color:#e6edf3;
-  font-weight:800;
-  outline:none;
-}
-.upgSearch::placeholder{ color: rgba(215,227,255,0.55); font-weight:800; }
-.upgCtlBtn{
-  flex:0 0 auto;
-  padding:7px 10px;
-  border-radius:10px;
-  border:1px solid rgba(255,255,255,0.14);
-  background:rgba(255,255,255,0.05);
-  color:#d7e3ff;
-  font-weight:900;
-  font-size:12px;
-  cursor:pointer;
-  white-space:nowrap;
-}
-.upgSection{ margin: 10px 0 12px; }
-.upgSectionHeader{
-  display:flex; align-items:center; justify-content:space-between; gap:8px;
-  padding:8px 10px;
-  border-radius:10px;
-  border:1px solid rgba(255,255,255,0.10);
-  background:rgba(255,255,255,0.04);
-  cursor:pointer;
-  user-select:none;
-  font-weight:1000;
-  letter-spacing:0.2px;
-}
-.upgSectionHeader .count{ font-size:12px; opacity:0.75; font-weight:900; }
-
-/* nicer scrollbars (webkit) */
-#uiUpgListPC::-webkit-scrollbar{ width:10px; }
-#uiUpgListPC::-webkit-scrollbar-track{ background: rgba(255,255,255,0.04); border-radius:10px; }
-#uiUpgListPC::-webkit-scrollbar-thumb{ background: rgba(120,170,255,0.20); border-radius:10px; border:2px solid rgba(0,0,0,0); background-clip: padding-box; }
-#uiUpgListPC::-webkit-scrollbar-thumb:hover{ background: rgba(120,170,255,0.28); }
-.upgSectionHeader .chev{ font-size:12px; opacity:0.85; font-weight:1000; }
-.upgGrid{
-  margin-top:8px;
-  display:grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-  gap:8px;
-}
-@media (max-width: 900px){
-  .upgGrid{ grid-template-columns: 1fr; }
-}
-.upgGrid .upgRow{ margin:0; }
-.upgTop{ display:flex; align-items:center; justify-content:space-between; gap:10px; }
-.upgNameLine{ display:flex; align-items:baseline; justify-content:space-between; gap:8px; width:100%; }
-.upgRow .miniBtn{ flex:0 0 auto; }
-.upgSection.collapsed .upgGrid{ display:none; }
-
-  /* --- Core Passive UI --- */
-  .corePickGrid{ display:grid; grid-template-columns:repeat(2, 1fr); gap:8px; }
-  .coreBtn{ padding:10px 10px; border-radius:12px; border:1px solid #2a3a52; background:#0b1320; color:#e5eefc; font-weight:700; cursor:pointer; }
-  .coreBtn small{ display:block; opacity:0.8; font-weight:600; margin-top:2px; }
-  .coreBtn.active{ outline:2px solid rgba(255,255,255,0.12); box-shadow:0 0 0 2px rgba(99,102,241,0.15) inset; }
-  .coreBtn.blue{ border-color:#1f3b76; }
-  .coreBtn.orange{ border-color:#7a3a14; }
-  .coreBtn.red{ border-color:#7a1f2c; }
-  .coreBtn.purple{ border-color:#4c1d95; }
-  .coreBtn:disabled{ opacity:0.5; cursor:not-allowed; }
-  .corePassiveDesc{ margin-top:8px; padding:10px 10px; border-radius:12px; border:1px solid #223149; background:#0a101a; color:#cfe3ff; }
-  .badge.passiveBlue{ border-color:#2563eb55; color:#93c5fd; }
-  .badge.passiveOrange{ border-color:#f9731655; color:#fdba74; }
-  .badge.passiveRed{ border-color:#ef444455; color:#fca5a5; }
-  .badge.passivePurple{ border-color:#a855f755; color:#d8b4fe; }
-
-  .hidden{ display:none !important; }
-
-    /* ---------- Mobile / Touch ---------- */
-    body.hasMobileBar{ padding-bottom: calc(var(--mbPad, 180px) + env(safe-area-inset-bottom)); }
-    #c{ max-width: 96vw; height: auto; touch-action: none; }
-    @media (max-width: 900px){
-      .wrap{ padding:10px; gap:10px; }
-      .leftCol{ align-items:center; }
-      .panel{ width: 96vw; }
-      canvas{ border-radius: 14px; }
-      h1{ font-size:18px; }
-      button{ padding:10px 12px; font-size:14px; }
-      .row{ gap:10px; }
-      /* 모바일에서 와이어 상태창 크기 축소 */
-      #wirePanel{ width: 280px; padding: 8px; }
-      #wire{ width: 240px; height: 127px; }
-    }
-    .mobileBar{
-      position: fixed;
-      left: 0; right: 0; bottom: 0;
-      z-index: 50;
-      background: rgba(11,15,20,0.92);
-      border-top: 1px solid #243040;
-      backdrop-filter: blur(8px);
-      padding: 10px 10px calc(10px + env(safe-area-inset-bottom));
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-      max-width: 100vw;
-    }
-    .mbRow{ display:flex; gap:8px; justify-content:space-between; }
-    .mbBtn{
-      flex: 1;
-      padding: 12px 10px;
-      border-radius: 12px;
-      border: 1px solid #243040;
-      background: #0b1320;
-      color: #e5eefc;
-      font-weight: 800;
-      font-size: 14px;
-      line-height: 1.1;
-      cursor:pointer;
-      user-select:none;
-      -webkit-tap-highlight-color: transparent;
-    }
-    .mbBtn small{ display:block; margin-top:4px; font-size:11px; opacity:0.85; font-weight:700; }
-    .mbBtn.active{ outline: 2px solid rgba(125,211,252,0.25); box-shadow: 0 0 0 2px rgba(125,211,252,0.16) inset; border-color:#2563eb55; }
-    .mbBtn.primary{ border-color:#2563eb55; }
-    .mbBtn.danger{ border-color:#ef444455; }
-    .mbBtn.on{ background:#121b2a; }
-    .mbHint{ font-size: 12px; opacity: 0.8; text-align:center; }
-
-
-    .cheatModal{
-      position: fixed;
-      inset: 0;
-      z-index: 80;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 16px;
-      background: rgba(0,0,0,0.55);
-    }
-    .cheatCard{
-      width: min(440px, 92vw);
-      background: #0b1320;
-      border: 1px solid #243040;
-      border-radius: 16px;
-      padding: 14px;
-      box-shadow: 0 10px 40px rgba(0,0,0,0.55);
-    }
-    .cheatTitle{ font-weight: 900; margin-bottom: 10px; letter-spacing: 0.2px; }
-    .cheatGrid{
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 10px;
-    }
-    .cheatGrid button{
-      padding: 12px 10px;
-      border-radius: 12px;
-      border: 1px solid #243040;
-      background: #0b1320;
-      color: #e5eefc;
-      font-weight: 900;
-      cursor: pointer;
-    }
-    .cheatGrid button.danger{
-      border-color:#8b2a2a;
-      background:#1a0d0d;
-    }
-    .cheatGrid button:disabled{
-      opacity: 0.55;
-      cursor: not-allowed;
-    }
-    .cheatNote{
-      margin-top: 10px;
-      font-size: 12px;
-      opacity: 0.85;
-      line-height: 1.35;
-    }
-
-    /* ---------- Mobile Menu Overlay (Panel) ---------- */
-    .panelBackdrop{
-      position: fixed;
-      inset: 0;
-      z-index: 70;
-      background: rgba(0,0,0,0.55);
-    }
-    .panelMobileTop{
-      display:none;
-      align-items:center;
-      justify-content: space-between;
-      gap:10px;
-      margin-bottom: 10px;
-      padding-bottom: 10px;
-      border-bottom: 1px solid rgba(255,255,255,0.08);
-    }
-    .panelMobileTop .title{
-      font-weight: 900;
-      font-size: 14px;
-      opacity: 0.9;
-    }
-    .panelMobileTop .closeBtn{
-      padding: 10px 12px;
-      border-radius: 12px;
-      border: 1px solid #243040;
-      background: rgba(255,255,255,0.06);
-      color: #e6edf3;
-      font-weight: 900;
-      cursor: pointer;
-    }
-
-    @media (max-width: 900px){
-      /* 캔버스 중심으로: 패널은 메뉴로 열기 */
-      body.hasMobileBar .panel{
-        display: none;
-        position: fixed;
-        left: 8px; right: 8px; top: 8px;
-        bottom: calc(var(--mbPad, 180px) + 8px);
-        width: auto; max-width: none;
-        z-index: 71;
-        overflow: auto;
-        -webkit-overflow-scrolling: touch;
-      }
-      body.hasMobileBar .panel.mobileOpen{ display:block; }
-      body.hasMobileBar .panelMobileTop{ display:flex; }
-
-      /* 모바일에서 버튼/업그레이드 터치감 개선 */
-      .coreBtn{ padding: 14px 12px; font-size: 15px; }
-      .upgRow{ padding: 12px 12px 14px; margin: 10px 0; }
-      .upgDesc{ font-size: 13px; line-height: 1.35; }
-      .miniBtn{ padding: 10px 14px; font-size: 14px; }
-    }
-
-
-    /* ---------- Mobile Menu Overlay DISABLED (revert to original) ---------- */
-    @media (max-width: 900px){
-      /* 원래처럼 패널은 항상 보이게 */
-      body.hasMobileBar .panel{
-        display: block !important;
-        position: static !important;
-        left: auto !important; right: auto !important; top: auto !important; bottom: auto !important;
-        width: min(520px, 96vw) !important;
-        z-index: auto !important;
-        overflow: visible !important;
-      }
-      /* 오버레이 상단바/배경막/메뉴버튼 숨김 */
-      #panelBackdrop{ display:none !important; }
-      .panelMobileTop{ display:none !important; }
-      #mbMenu{ display:none !important; }
-    }
-
-</style>
-</head>
-<body>
-<div class="wrap">
-  <div class="leftCol">
-    <canvas id="c" width="960" height="540"></canvas>
-
-    <div class="bottomRow">
-    <div class="miniPanel" id="wirePanel">
-      <div class="miniTitle">와이어 상태(Star UI)</div>
-      <canvas id="wire" width="360" height="190"></canvas>
-      <div class="miniText" id="wireText"></div>
-    </div>
-    <div class="miniPanel" id="upgPanelPC">
-      <div class="miniTitle">업그레이드</div>
-      <div id="uiUpgradesPC" class="small">
-        <div class="upgControls" data-upg-ctx="pc">
-          <div class="upgTabs">
-            <button class="upgTabBtn" data-upg-tab="all">전체</button>
-            <button class="upgTabBtn" data-upg-tab="core">코어</button>
-            <button class="upgTabBtn" data-upg-tab="turret">포탑</button>
-            <button class="upgTabBtn" data-upg-tab="util">유틸</button>
-          </div>
-          <input class="upgSearch" type="text" maxlength="32" placeholder="업그레이드 검색" data-upg-search>
-          <button class="upgCtlBtn" data-upg-only>구매가능만: OFF</button>
-          <button class="upgCtlBtn" data-upg-sort>정렬: 기본</button>
-        </div>
-        <div id="uiUpgListPC"></div>
-      </div>
-    </div>
-  </div>
-  </div>
-
-  <div class="panel">
-    <div class="panelMobileTop mobileOnly">
-      <div class="title">메뉴</div>
-      <button id="btnPanelClose" class="closeBtn">닫기 ✕</button>
-    </div>
-<h1>수정탑 보호막 디펜스</h1>
-    <p class="small">
-      조작:
-      <span class="kbd">좌클릭</span> 포탑 설치 /
-      <span class="kbd">우클릭</span> 또는 <span class="kbd">X</span> 포탑 판매(환불 70%~90%) /
-      <span class="kbd">1</span> 기본 /
-      <span class="kbd">2</span> 슬로우 /
-      <span class="kbd">3</span> 스플래시 /
-      <span class="kbd">Space</span> 긴급 보호막 /
-      <span class=\"kbd\">E</span> 에너지포 /
-      <span class="kbd">F</span> 수리 /
-      <span class="kbd">R</span> 재시작
-    </p>
-
-    <div class="sep"></div>
-
-    <div class="crystalHud">
-      <div class="crystalLabel">크리스탈</div>
-      <div class="crystalValue" id="uiCrystals">0</div>
-    </div>
-
-<p class="stat" id="uiStats"></p>
-<p class="small" id="uiEvent"></p>
-    <div class="miniPanel" style="margin-top:10px;">
-      <div class="miniTitle">다음 웨이브 정보</div>
-      <div class="miniText" id="uiPreview"></div>
-    </div>
-
-    <p class="small" id="uiMsg"></p>    <p class="small" id="uiCheat"></p>
-
-    <div class="row">
-      <button id="btnSound">사운드 ON</button>
-      <button id="btnVol">볼륨 85%</button>
-    </div>
-    <div class="row" style="align-items:center">
-      <input id="volSlider" type="range" min="0" max="100" step="1" value="85" style="flex:1">
-      <div class="small" id="volVal">85%</div>
-    </div>
-    <div class="row">
-      <button id="btnToggleWire">와이어 표시</button>
-    </div>
-
-    <div class="row">
-      <button id="btnBg">배경 약함</button>
-    </div>
-
-    <div class="row">
-      <button id="btnWave">웨이브 시작</button>
-      <button id="btnRestart">재시작</button>
-    </div>
-
-    <div class="row">
-      <button id="btnRepair">수리</button>
-      <button id="btnEnergy">에너지포</button>
-    </div>
-
-    <div class="row">
-      <button id="btnSpeed">배속 1.0x</button>
-      <button id="btnCheat">치트 OFF</button>
-    </div>
-    <div class="miniPanel" style="margin-top:10px;">
-      <div class="miniTitle">코어 패시브 (4개 중 1개 선택)</div>
-      <div class="corePickGrid">
-        <button id="btnCoreRebuild" class="coreBtn blue">
-          🔵 재건 코어
-          <small>안정 / 장기전</small>
-        </button>
-        <button id="btnCoreResonance" class="coreBtn orange">
-          🟠 공명 반격 코어
-          <small>공격 / 포탑 중심</small>
-        </button>
-        <button id="btnCoreOverload" class="coreBtn red">
-          🔴 임계 과부하
-          <small>저체력: 포탑 화력↑ / 피해감소↑</small>
-        </button>
-        <button id="btnCoreOverdrive" class="coreBtn purple">
-          🟣 코어 오버드라이브
-          <small>수정탑 직접 공격 (저체력 강해짐)</small>
-        </button>
-      </div>
-      <div id="uiCorePassiveDesc" class="corePassiveDesc small">
-        패시브를 선택하면 <span class="kbd">웨이브 시작</span>이 가능합니다. (재시작 시 다시 선택)
-      </div>
-    </div>
-
-<div id="finalSupportPanel" class="miniPanel hidden" style="margin-top:10px;">
-  <div class="miniTitle">최종 지원 선택 (웨이브 30 전)</div>
-  <div class="corePickGrid" style="grid-template-columns:1fr 1fr;">
-    <button id="btnFinalOffense" class="coreBtn orange">
-      🟠 화력 지원
-      <small>포탑 피해 +15%</small>
-    </button>
-    <button id="btnFinalDefense" class="coreBtn blue">
-      🔵 방호 강화
-      <small>보호막 재생 +25%</small>
-    </button>
-  </div>
-  <div id="uiFinalSupportDesc" class="corePassiveDesc small">
-    웨이브 30 시작 전에 1개를 선택하십시오. (선택하지 않으면 자동으로 방호 강화)
-  </div>
-</div>
-
-    <div class="miniPanel" id="upgPanelSide" style="margin-top:10px;">
-      <div class="miniTitle">업그레이드</div>
-      <div id="uiUpgrades" class="small">
-        <div class="upgControls" data-upg-ctx="side">
-          <div class="upgTabs">
-            <button class="upgTabBtn" data-upg-tab="all">전체</button>
-            <button class="upgTabBtn" data-upg-tab="core">코어</button>
-            <button class="upgTabBtn" data-upg-tab="turret">포탑</button>
-            <button class="upgTabBtn" data-upg-tab="util">유틸</button>
-          </div>
-          <input class="upgSearch" type="text" maxlength="32" placeholder="업그레이드 검색" data-upg-search>
-          <button class="upgCtlBtn" data-upg-only>구매가능만: OFF</button>
-          <button class="upgCtlBtn" data-upg-sort>정렬: 기본</button>
-        </div>
-        <div id="uiUpgListSide"></div>
-      </div>
-    </div>
-
-    <div class="row">
-      <button id="btnEasy">난이도↓</button>
-      <button id="btnHard">난이도↑</button>
-    </div>
-
-  </div>
-</div>
-
-<div id="mobileBar" class="mobileBar hidden" aria-label="모바일 컨트롤">
-  <div class="mbRow">
-    <button id="mbBasic" class="mbBtn primary"><span>기본</span><small>설치(35)</small></button>
-    <button id="mbSlow" class="mbBtn primary"><span>슬로우</span><small>설치(45)</small></button>
-    <button id="mbSplash" class="mbBtn primary"><span>스플래시</span><small>설치(60)</small></button>
-  </div>
-  <div class="mbRow">
-    <button id="mbWave" class="mbBtn primary"><span>웨이브</span><small>시작</small></button>
-    <button id="mbRepair" class="mbBtn"><span>수리</span><small>F</small></button>
-    <button id="mbAegis" class="mbBtn"><span>긴급</span><small>Space</small></button>
-    <button id="mbSell" class="mbBtn danger"><span>판매 OFF</span><small>길게=판매</small></button>
-  </div>
-  <div class="mbRow hidden" id="mbFinalRow">
-  <button id="mbFinalOffense" class="mbBtn primary"><span>화력</span><small>+15%</small></button>
-  <button id="mbFinalDefense" class="mbBtn primary"><span>방호</span><small>+25%</small></button>
-</div>
-  <div class="mbRow" id="mbCheatRow">
-    <button id="mbCheat" class="mbBtn"><span>치트 OFF</span><small>T</small></button>
-    <button id="mbMenu" class="mbBtn"><span>메뉴</span><small>업글/패시브</small></button>
-    <button id="mbCheatMenu" class="mbBtn danger" disabled><span>치트 기능</span><small>열기</small></button>
-  </div>
-<div class="mbRow" id="mbWireRow">
-    <button id="mbEnergy" class="mbBtn primary"><span>에너지포</span><small>800</small></button>
-  </div>
-<div class="mbHint">팁: 포탑을 <b>길게 누르면 판매</b>됩니다. (빌드/클리어에서만)</div>
-</div>
-<div id="cheatModal" class="cheatModal hidden" aria-label="치트 메뉴">
-  <div class="cheatCard" role="dialog" aria-modal="true">
-    <div class="cheatTitle">치트</div>
-    <div class="cheatGrid">
-      <button id="chCrystals">+500 크리스탈</button>
-      <button id="chMaxUpg">업글 MAX</button>
-      <button id="chHeal">HP 풀회복</button>
-      <button id="chShield">보호막 풀충전</button>
-      <button id="chKill">적 제거</button>
-      <button id="chSkip">웨이브 스킵</button>
-      <button id="chGod">무적 토글</button>
-      <button id="chClose" class="danger">닫기</button>
-    </div>
-    <div class="cheatNote">※ 모바일: 버튼으로 사용 가능 / PC: T 토글 후 K,H,J,B,N,U,G</div>
-  </div>
-</div>
-
-<div id="panelBackdrop" class="panelBackdrop hidden" aria-hidden="true"></div>
-
-<script>
 
 (() => {
   try {
@@ -1162,40 +500,6 @@ function env(param, t, a, d, s, r, peak){
     function s_click(){ tone("square", 1800, 1500, 0.045, 0.28); noise({hp:2400, lp:12000, dur:0.04, vol:0.10}); }
     function s_place(){ tone("triangle", 700, 980, 0.08, 0.28); noise({hp:1400, lp:9000, dur:0.05, vol:0.09}); }
     function s_shoot(){ tone("triangle", 520, 360, 0.08, 0.16); noise({hp:1700, lp:9000, dur:0.05, vol:0.07}); }
-
-    // 에너지포(야마토포) 전용 사운드: 충전은 점점 올라가고, 발사는 저역+고역 임팩트
-    function s_yamatoCharge1(){
-      // 시작: 낮은 허밍 + 얇은 스파크
-      tone("sine", 120, 170, 0.18, 0.40);
-      tone("triangle", 480, 620, 0.10, 0.18);
-      noise({hp:650, lp:3600, dur:0.16, vol:0.14});
-    }
-    function s_yamatoCharge2(){
-      // 중반: 더 높은 집속, 짧게
-      tone("triangle", 620, 820, 0.10, 0.22);
-      tone("sine", 170, 220, 0.12, 0.28);
-      noise({hp:1200, lp:5200, dur:0.12, vol:0.12});
-    }
-    function s_yamatoCharge3(){
-      // 후반: 빠르게 떨리는 느낌
-      tone("square", 860, 1020, 0.08, 0.20);
-      tone("triangle", 980, 1240, 0.07, 0.18);
-      noise({hp:2000, lp:9000, dur:0.10, vol:0.11});
-    }
-    function s_yamatoChargeReady(){
-      // 발사 직전: 짧은 상승 치프(ready)
-      tone("triangle", 920, 1760, 0.12, 0.26);
-      noise({hp:3200, lp:14000, dur:0.10, vol:0.14});
-    }
-    function s_yamatoFire(){
-      // 발사: 저역 충격 + 고역 에너지 스냅(필살기 체감)
-      tone("sine", 120, 46, 0.60, 0.90);
-      noise({hp:120, lp:1800, dur:0.40, vol:0.30});
-      tone("sawtooth", 860, 190, 0.40, 0.34);
-      tone("triangle", 2400, 920, 0.22, 0.38);
-      noise({hp:3200, lp:16000, dur:0.18, vol:0.18});
-    }
-
     function s_shieldHit(){ tone("triangle", 1250, 900, 0.12, 0.38); noise({hp:1200, lp:8000, dur:0.10, vol:0.18}); }
     function s_shieldBreak(){ tone("sawtooth", 900, 170, 0.30, 0.38); noise({hp:2200, lp:12000, dur:0.22, vol:0.33}); tone("sine", 120, 60, 0.25, 0.22); }
     function s_coreBreak(){
@@ -1291,11 +595,6 @@ function env(param, t, a, d, s, r, peak){
         case "click": return s_click();
         case "place": return s_place();
         case "shoot": return s_shoot();
-        case "y_charge1": return s_yamatoCharge1();
-        case "y_charge2": return s_yamatoCharge2();
-        case "y_charge3": return s_yamatoCharge3();
-        case "y_charge_ready": return s_yamatoChargeReady();
-        case "y_fire": return s_yamatoFire();
         case "enemy_shoot": return s_enemyShoot();
         case "blast": return s_blast();
         case "shield_hit": return s_shieldHit();
@@ -1473,7 +772,6 @@ final: null,       // 최종 보스 패턴 상태
       hpArmor: 0,
       shieldArmor: 0,
       shieldRegen: 0,
-      energyCannon: 0,
       repair: 0,
       turretDmg: 0,
       turretFire: 0,
@@ -1555,14 +853,6 @@ shieldRegenBlockedUntil: 0,
       energyCd: 40.0,
       energyReadyAt: 0,
 
-
-      energyDmg: 800,
-      energyChargeDur: 3.0,
-      energyCharging: false,
-      energyChargeStartAt: 0,
-      energyChargeUntil: 0,
-      energyChargeFxAt: 0,
-      energyLock: null,
       aegisCd: 18.0,
       aegisReadyAt: 0,
       aegisActiveUntil: 0,
@@ -1673,10 +963,6 @@ shieldRegenBlockedUntil: 0,
     repairCost: state.core.repairCost,
     repairAmount: state.core.repairAmount,
     repairCd: state.core.repairCd,
-    // 에너지포(스킬) 기본값
-    energyDmg: state.core.energyDmg,
-    energyChargeDur: state.core.energyChargeDur,
-    energyCd: state.core.energyCd,
     aegisCd: state.core.aegisCd,
   };
 
@@ -1710,42 +996,6 @@ shieldRegenBlockedUntil: 0,
       apply(){
         const lv = state.upg.aegisTune;
         state.core.aegisCd = Math.max(6, CORE_BASE.aegisCd - 1.5*lv);
-      } },
-
-    // 에너지포 업그레이드(선택 A): 피해 +100 → 충전 -0.4s → 쿨 -5s 반복 (총 6레벨)
-    { id:"energyCannon", cat:"core", name:"에너지포 개량", max:6, base:95, grow:1.62,
-      desc:(lv)=>{
-        const steps = [
-          `피해 +100 (800→900)`,
-          `충전 -0.4s (3.0→2.6)`,
-          `쿨 -5s (40→35)`,
-          `피해 +100 (900→1000)`,
-          `충전 -0.4s (2.6→2.2)`,
-          `쿨 -5s (35→30)`
-        ];
-        const i = clamp((lv|0) - 1, 0, steps.length - 1);
-        return steps[i];
-      },
-      apply(){
-        const lv = (state.upg.energyCannon|0);
-
-        // 기본값
-        let dmg = CORE_BASE.energyDmg;
-        let charge = CORE_BASE.energyChargeDur;
-        let cd = CORE_BASE.energyCd;
-
-        if (lv >= 1) dmg = CORE_BASE.energyDmg + 100;
-        if (lv >= 4) dmg = CORE_BASE.energyDmg + 200;
-
-        if (lv >= 2) charge = CORE_BASE.energyChargeDur - 0.4;
-        if (lv >= 5) charge = CORE_BASE.energyChargeDur - 0.8;
-
-        if (lv >= 3) cd = CORE_BASE.energyCd - 5;
-        if (lv >= 6) cd = CORE_BASE.energyCd - 10;
-
-        state.core.energyDmg = dmg;
-        state.core.energyChargeDur = Math.max(1.2, charge);
-        state.core.energyCd = Math.max(8, cd);
       } },
 
     { id:"slowPower", cat:"turret", name:"슬로우 강화", max:5, base:65, grow:1.58, desc:(lv)=>`둔화 +${Math.round(6*lv)}%`, apply(){} },
@@ -2068,8 +1318,7 @@ const uiFinalSupportDesc = document.getElementById("uiFinalSupportDesc");
         "수정탑이 직접 적을 공격합니다.",
         "HP가 낮을수록 공격 속도와 공격력이 증가합니다.",
         "저체력 구간에서 보호막 재생이 증가합니다.",
-        "저체력일수록 받는 피해가 소폭 감소합니다.",
-        "에너지포가 광역 피해(30%)를 추가로 입힙니다."
+        "저체력일수록 받는 피해가 소폭 감소합니다."
       ]
     }
   };
@@ -2398,7 +1647,7 @@ const mbFinalDefense = document.getElementById("mbFinalDefense");
   const mbCheatRow = document.getElementById("mbCheatRow");
   const mbCheat = document.getElementById("mbCheat");
   const mbCheatMenu = document.getElementById("mbCheatMenu");
-  const mbEnergy = document.getElementById("mbEnergy");
+  const mbWire = document.getElementById("mbWire");
 
   
   const mbMenu = document.getElementById("mbMenu");
@@ -2490,6 +1739,11 @@ const cheatModal = document.getElementById("cheatModal");
     if (!p) return;
     p.classList.toggle("hidden", !show);
     if (btnToggleWire) btnToggleWire.textContent = show ? "와이어 숨김" : "와이어 표시";
+    if (mbWire){
+      mbWire.firstElementChild.textContent = show ? "와이어 숨김" : "와이어 표시";
+      const sm = mbWire.querySelector('small');
+      if (sm) sm.textContent = show ? "숨기기" : "표시";
+    }
   }
 
   try{
@@ -2506,8 +1760,8 @@ const cheatModal = document.getElementById("cheatModal");
       // 실제 모바일 바 높이에 맞춰 여백 조정 (줄바꿈/추가 버튼에도 안전)
       requestAnimationFrame(updateMobilePad);
       // 모바일에서는 패널을 원래대로 항상 표시 (오버레이 비활성화)
-      // Mobile default: show wire panel
-      setWireVisible(true);
+      // Mobile default: hide wire panel to maximize play area
+      setWireVisible(false);
     } else {
       mobileBar.classList.add("hidden");
       document.body.classList.remove("hasMobileBar");
@@ -2539,6 +1793,14 @@ const cheatModal = document.getElementById("cheatModal");
   }
 
   // 모바일 메뉴(업그레이드/패시브/치트 등) 열기/닫기
+  if (mbWire){
+    mbWire.addEventListener("click", ()=>{
+      const p = document.getElementById("wirePanel");
+      const hidden = p ? p.classList.contains("hidden") : false;
+      setWireVisible(hidden);
+      try{ SFX.play("click"); }catch{}
+    });
+  }
 
   if (mbMenu){
     mbMenu.addEventListener("click", ()=>{
@@ -2618,7 +1880,6 @@ const cheatModal = document.getElementById("cheatModal");
   if (mbWave)   mbWave.onclick = ()=> { ensureAudio(); SFX.play("click"); if (state.phase==="win") return; if (state.phase==="build"||state.phase==="clear"||state.phase==="finalprep") startWave(); };
   if (mbRepair) mbRepair.onclick = ()=> { ensureAudio(); tryRepair(); };
   if (mbAegis)  mbAegis.onclick  = ()=> { ensureAudio(); tryAegis(); };
-  if (mbEnergy) mbEnergy.onclick = ()=> { ensureAudio(); tryEnergyCannon(); };
   if (mbSell)   mbSell.onclick   = ()=> { ensureAudio(); SFX.play("click"); state.mobileSellMode = !state.mobileSellMode; syncMobileButtons(); };
 
   // Touch: tap to place / sell. Long-press sells (even if sell-mode off).
@@ -2779,14 +2040,7 @@ const cheatModal = document.getElementById("cheatModal");
     if (["Digit1","Digit2","Digit3","Space","KeyR","KeyF","KeyX","KeyE"].includes(e.code)) e.preventDefault();
     if (["Digit1","Digit2","Digit3","Space","KeyR","KeyF","KeyX","KeyE"].includes(e.code)) ensureAudio();
     if (e.code === "Digit1") { state.selected = "basic"; SFX.play("click"); }
-    if (e.code === "Digit2") {
-      if (state.phase === "wave") {
-        tryEnergyCannon();
-      } else {
-        state.selected = "slow";
-        SFX.play("click");
-      }
-    }
+    if (e.code === "Digit2") { state.selected = "slow"; SFX.play("click"); }
     if (e.code === "Digit3") { state.selected = "splash"; SFX.play("click"); }
     if (e.code === "Space")  tryAegis();
     if (e.code === "KeyF")  tryRepair();
@@ -2989,242 +2243,6 @@ const cheatModal = document.getElementById("cheatModal");
     fxRing(CORE_POS.x, CORE_POS.y, CORE_RADIUS+10, CORE_RADIUS+90, "#67f3a6");
     fxText(`수리 +${(heal|0)}`, CORE_POS.x, CORE_POS.y - 64, "#67f3a6");
   }
-
-    function pickEnergyTarget(){
-    if (!state.enemies) return null;
-
-    // 우선순위: 보스(kind==="boss") → 그 다음 현재 HP 최대
-    let target = null;
-    let bestHp = -1;
-
-    for (const e of state.enemies) {
-      if (!e || e.hp <= 0) continue;
-      if (e.kind === "boss") {
-        if (e.hp > bestHp) { bestHp = e.hp; target = e; }
-      }
-    }
-    if (!target) {
-      bestHp = -1;
-      for (const e of state.enemies) {
-        if (!e || e.hp <= 0) continue;
-        if (e.hp > bestHp) { bestHp = e.hp; target = e; }
-      }
-    }
-    return target;
-  }
-
-  function updateEnergyCharge(){
-    if (!state.core.energyCharging) return;
-
-    // 웨이브가 아니면 충전 취소
-    if (state.phase !== "wave") {
-      state.core.energyCharging = false;
-      state.core.energyLock = null;
-      state.core.energyChargeOrbs = [];
-      state.core.energyChargeReadySfx = false;
-      state.core.energyFlashUntil = 0;
-      return;
-    }
-
-    const t = gameSec();
-    const dur = state.core.energyChargeDur || 3.0;
-    const rem = state.core.energyChargeUntil - t;
-    const prog = clamp(1 - (rem / dur), 0, 1);
-
-    // dt(프레임 간격)
-    const lastT = state.core.energyChargeLastT || t;
-    const dt = clamp(t - lastT, 0, 0.05);
-    state.core.energyChargeLastT = t;
-
-    // --- 코어로 빨려드는 오브(빛) ---
-    if (!state.core.energyChargeOrbs) state.core.energyChargeOrbs = [];
-    if (t >= (state.core.energyChargeOrbAt || 0)) {
-      // 후반으로 갈수록 더 촘촘하게
-      const interval = lerp(0.12, 0.045, prog);
-      state.core.energyChargeOrbAt = t + interval;
-
-      const a = Math.random() * Math.PI * 2;
-      const r = lerp(170, 110, prog) + (Math.random()*26);
-      const life = lerp(0.58, 0.34, prog);
-      state.core.energyChargeOrbs.push({ a, r, t:0, life });
-    }
-
-    // 오브 이동/소멸
-    const orbs = state.core.energyChargeOrbs;
-    for (let i = orbs.length - 1; i >= 0; i--) {
-      const o = orbs[i];
-      o.t += dt;
-      o.r -= (lerp(260, 520, prog)) * dt;
-      // 약간의 흔들림(에너지 불안정)
-      o.a += (0.9 + 1.6*prog) * dt * (Math.random() < 0.5 ? -1 : 1);
-
-      if (o.t >= o.life || o.r <= 6) orbs.splice(i, 1);
-    }
-
-    // --- 락온 타겟 유지(죽었으면 재탐색) ---
-    let lock = state.core.energyLock;
-    if (!lock || lock.hp <= 0 || !(state.enemies && state.enemies.includes(lock))) {
-      lock = pickEnergyTarget();
-      state.core.energyLock = lock;
-    }
-
-    // --- 충전 사운드: 진행도에 따라 점점 촘촘하고 높은 톤 ---
-    if (t >= (state.core.energyChargeSfxAt || 0)) {
-      const interval = lerp(0.34, 0.12, prog);
-      state.core.energyChargeSfxAt = t + interval;
-
-      if (prog < 0.40) SFX.play("y_charge1");
-      else if (prog < 0.75) SFX.play("y_charge2");
-      else SFX.play("y_charge3");
-    }
-
-    // 발사 직전(거의 완충) 사운드 1회
-    if (prog >= 0.92 && !state.core.energyChargeReadySfx) {
-      state.core.energyChargeReadySfx = true;
-      SFX.play("y_charge_ready");
-    }
-
-    // 충전 중 이펙트(과도한 생성 방지) — 타겟 라인/링은 FX로 유지
-    if (t >= (state.core.energyChargeFxAt || 0)) {
-      state.core.energyChargeFxAt = t + 0.18; // 약 5~6회/초
-
-      const r0 = CORE_RADIUS + 8 + prog*6;
-      const r1 = CORE_RADIUS + 54 + prog*92;
-      fxRing(CORE_POS.x, CORE_POS.y, r0, r1, "#93c5fd");
-
-      if (lock && lock.hp > 0) {
-        fxRing(lock.x, lock.y, 12, 46, "#93c5fd");
-        fxLine(CORE_POS.x, CORE_POS.y, lock.x, lock.y, "#93c5fd", 0.16, 2.2);
-      }
-    }
-
-    // 3초(또는 설정값) 후 자동 발사 — 코어가 가장 밝아지는 순간
-    if (rem <= 0) fireEnergyCannon();
-  }
-
-  function fireEnergyCannon(){
-    const t = gameSec();
-
-    // 발사 순간: 코어가 가장 밝아지는 플래시
-    state.core.energyFlashUntil = t + 0.16;
-
-    // 락온 타겟이 유효하지 않으면 재탐색
-    let target = state.core.energyLock;
-    if (!target || target.hp <= 0 || !(state.enemies && state.enemies.includes(target))) {
-      target = pickEnergyTarget();
-    }
-
-    // 충전 상태 종료
-    state.core.energyCharging = false;
-    state.core.energyLock = null;
-
-    if (!target) {
-      SFX.play("click");
-      fxText("대상이 없습니다", CORE_POS.x, CORE_POS.y - 70, "#93c5fd");
-      return;
-    }
-
-    const dmg = (state.core.energyDmg || 800);
-    target.hp -= dmg;
-
-    // 오버드라이브 패시브: 에너지포가 광역 피해(30%)를 추가로 입힘
-    if (state.core.passiveId === "overdrive") {
-      const splashMul = 0.30;
-      const splashDmg = dmg * splashMul;
-      const rad = 120;
-      let hitN = 0;
-
-      if (state.enemies && state.enemies.length) {
-        for (const e of state.enemies) {
-          if (!e || e === target || e.hp <= 0) continue;
-          const d = dist(e.x, e.y, target.x, target.y);
-          if (d <= rad + (e.r||0)) {
-            e.hp -= splashDmg;
-            hitN++;
-          }
-        }
-      }
-
-      if (hitN > 0) {
-        fxRing(target.x, target.y, 26, rad, "#c4b5fd");
-        fxText(`오버드라이브 광역 x${hitN}`, target.x, target.y - 40, "#c4b5fd");
-        try { SFX.play("shield_hit"); } catch {}
-      }
-    }
-
-    // 야마토포 스타일 빔(굵은 코어 + 하이라이트)
-    fxLine(CORE_POS.x, CORE_POS.y, target.x, target.y, "#93c5fd", 0.26, 16);
-    fxLine(CORE_POS.x, CORE_POS.y, target.x, target.y, "#cbe6ff", 0.22, 7);
-    fxLine(CORE_POS.x, CORE_POS.y, target.x, target.y, "rgba(255,255,255,0.85)", 0.14, 2.2);
-
-    // 발사 쇼크(코어/타겟)
-    fxRing(CORE_POS.x, CORE_POS.y, CORE_RADIUS+8, CORE_RADIUS+140, "#93c5fd");
-    fxRing(target.x, target.y, 14, 92, "#93c5fd");
-    fxRing(target.x, target.y, 10, 64, "#cbe6ff");
-
-    fxText(`-${Math.round(dmg)}`, target.x, target.y - 18, "#93c5fd");
-    SFX.play("y_fire");
-
-    // 쿨타임은 발사 시점부터
-    state.core.energyReadyAt = t + state.core.energyCd;
-  }
-
-  function tryEnergyCannon(){
-    if (state.phase === "fail") return;
-
-    const t = gameSec();
-
-    // 이미 충전 중이면 안내만
-    if (state.core.energyCharging) {
-      const rem = Math.max(0, state.core.energyChargeUntil - t);
-      fxText(`에너지포 충전중 ${rem.toFixed(1)}s`, CORE_POS.x, CORE_POS.y - 70, "#93c5fd");
-      SFX.play("click");
-      return;
-    }
-
-    const cdLeft = Math.max(0, state.core.energyReadyAt - t);
-
-    if (state.phase !== "wave") {
-      fxText("웨이브 중에만 사용 가능", CORE_POS.x, CORE_POS.y - 70, "#93c5fd");
-      SFX.play("click");
-      return;
-    }
-    if (cdLeft > 0) {
-      fxText(`에너지포 쿨다운 ${cdLeft.toFixed(1)}s`, CORE_POS.x, CORE_POS.y - 70, "#ffd166");
-      SFX.play("click");
-      return;
-    }
-
-    const target = pickEnergyTarget();
-    if (!target) {
-      fxText("대상이 없습니다", CORE_POS.x, CORE_POS.y - 70, "#93c5fd");
-      SFX.play("click");
-      return;
-    }
-
-    // ✅ 누르면 약 3초 충전 후 자동 발사 (SC2 야마토포 느낌)
-    state.core.energyCharging = true;
-    state.core.energyChargeStartAt = t;
-    state.core.energyChargeUntil = t + (state.core.energyChargeDur || 3.0);
-    state.core.energyChargeFxAt = t; // 즉시 이펙트 1회
-    state.core.energyLock = target;
-
-    // 충전 시작 사운드(클릭 대신 집속 사운드)
-    SFX.play("y_charge1");
-
-    // 충전 중 사운드/연출 상태 초기화
-    state.core.energyChargeSfxAt = t + 0.18;
-    state.core.energyChargeReadySfx = false;
-    state.core.energyChargeOrbAt = t;
-    state.core.energyChargeOrbs = [];
-    state.core.energyChargeLastT = t;
-
-    fxText("에너지 집속…", CORE_POS.x, CORE_POS.y - 70, "#93c5fd");
-    fxRing(CORE_POS.x, CORE_POS.y, CORE_RADIUS+6, CORE_RADIUS+70, "#93c5fd");
-    fxRing(target.x, target.y, 10, 46, "#93c5fd");
-  }
-
-
 
 // ---------- Spawning ----------
   function spawnEnemy(spec, idx){
@@ -3983,9 +3001,7 @@ function fxLine(x1,y1,x2,y2, color, dur=0.9, width=4){
 
     // 재건 코어: 저체력 피해감소 (HP 50%↓부터, 10%에서 최대 -12%)
     if (state.core.passiveId === "rebuild") {
-      // HP 70%↓부터 방어/DR이 시작, HP 10%에서 최대치
-      // (주의) 예전 hpPct/clamp01 참조로 런타임 에러가 나서 적/포탑 공격이 멈추는 버그가 있었음
-      const tB = clamp((0.70 - hpFrac0) / 0.60, 0, 1);       // 70%->0, 10%->1
+      const tB = clamp01((0.70 - hpPct) / 0.60);       // 70%->0, 10%->1
       // 저체력일수록 방어/보호막방어 보정 (최대 방어 +15 / 보호막방어 +7.5)
       bonusHpArmor = 15 * tB;
       bonusShieldArmor = 7.5 * tB;
@@ -4465,12 +3481,7 @@ function restart(){
     state.core.repairCd = CORE_BASE.repairCd;
     state.core.repairReadyAt = 0; // 재시작 시 수리 쿨타임 리셋
     state.core.energyReadyAt = 0; // 재시작 시 에너지포 쿨 리셋
-    state.core.energyCharging = false;
-    state.core.energyLock = null;
-    state.core.energyChargeStartAt = 0;
-    state.core.energyChargeUntil = 0;
-    state.core.energyChargeFxAt = 0;
-    state.upg = { coreHp:0, coreShield:0, hpArmor:0, shieldArmor:0, shieldRegen:0, energyCannon:0, repair:0, turretDmg:0, turretFire:0, turretRange:0, slowPower:0, splashRadius:0, projSpeed:0, turretCrit:0, slowDuration:0, sellRefund:0, aegisTune:0, waveShield:0 };
+    state.upg = { coreHp:0, coreShield:0, hpArmor:0, shieldArmor:0, shieldRegen:0, repair:0, turretDmg:0, turretFire:0, turretRange:0, slowPower:0, splashRadius:0, projSpeed:0, turretCrit:0, slowDuration:0, sellRefund:0, aegisTune:0, waveShield:0 };
     applyUpgrades();
     state.core.aegisReadyAt = 0;
     state.core.aegisActiveUntil = 0;
@@ -4580,10 +3591,6 @@ function restart(){
 
   function update(dt){
     state.time += dt;
-
-
-    // 에너지포 충전/자동발사 처리
-    updateEnergyCharge();
 
     // 붕괴 상태
     if (state.phase === "fail" && state.collapse) {
@@ -5124,101 +4131,10 @@ if (state.phase === "wave" && state.wave === FINAL_WAVE) {
       ctx.restore();
     }
 
-
-
-    // 에너지포 충전: 수정탑 집속 연출(빛을 모아 가장 밝아질 때 발사)
-    if (alpha > 0.01 && state.core.energyCharging) {
-      const tt = gameSec();
-      const dur = state.core.energyChargeDur || 3.0;
-      const rem = state.core.energyChargeUntil - tt;
-      const c = clamp(1 - (rem / dur), 0, 1);
-      const pulse = 0.5 + 0.5*Math.sin(tt*7.2 + c*2.2);
-
-      ctx.save();
-      ctx.globalCompositeOperation = "lighter";
-
-      // 강한 글로우(수정탑 자체가 빛나게)
-      ctx.globalAlpha = alpha * (0.10 + 0.36*c);
-      const gg = ctx.createRadialGradient(CORE_POS.x, CORE_POS.y, 8, CORE_POS.x, CORE_POS.y, 110 + 40*c);
-      gg.addColorStop(0, "rgba(203,230,255,0.85)");
-      gg.addColorStop(0.35, "rgba(96,165,250,0.55)");
-      gg.addColorStop(1, "rgba(96,165,250,0)");
-      ctx.fillStyle = gg;
-      ctx.beginPath();
-      ctx.arc(CORE_POS.x, CORE_POS.y, 120 + 30*c, 0, Math.PI*2);
-      ctx.fill();
-
-      // 외곽 링(회전 아크)
-      ctx.globalAlpha = alpha * (0.12 + 0.26*c);
-      ctx.strokeStyle = "rgba(147,197,253,0.95)";
-      ctx.lineWidth = 4.2;
-      const baseR = 88 + 8*pulse;
-      const rot = tt*2.4 + c*1.1;
-      for (let k=0;k<3;k++){
-        const a0 = rot + k*(Math.PI*2/3);
-        ctx.beginPath();
-        ctx.arc(CORE_POS.x, CORE_POS.y, baseR, a0, a0 + 0.95 + 0.25*pulse);
-        ctx.stroke();
-      }
-
-      // 코어로 모이는 오브/트레일
-      const orbs = state.core.energyChargeOrbs || [];
-      for (const o of orbs){
-        const ox = CORE_POS.x + Math.cos(o.a) * o.r;
-        const oy = CORE_POS.y + Math.sin(o.a) * o.r * 0.72;
-        const t01 = clamp(o.t / (o.life || 1), 0, 1);
-        const a = alpha * (0.30 * (1 - t01)) * (0.7 + 0.3*pulse);
-        if (a <= 0) continue;
-
-        ctx.globalAlpha = a;
-        ctx.fillStyle = "rgba(203,230,255,0.95)";
-        ctx.beginPath();
-        ctx.arc(ox, oy, 3.0, 0, Math.PI*2);
-        ctx.fill();
-
-        ctx.globalAlpha = a * 0.55;
-        ctx.strokeStyle = "rgba(96,165,250,0.75)";
-        ctx.lineWidth = 1.6;
-        ctx.beginPath();
-        ctx.moveTo(ox, oy);
-        ctx.lineTo(CORE_POS.x, CORE_POS.y);
-        ctx.stroke();
-      }
-
-      ctx.restore();
-    }
-
-    // core image (+ 에너지포 충전 시 더 밝게/살짝 확대)
+    // core image
     if (alpha > 0.01) {
-      const tt = gameSec();
-      const dur = state.core.energyChargeDur || 3.0;
-      const rem = (state.core.energyCharging ? (state.core.energyChargeUntil - tt) : 0);
-      const eng = state.core.energyCharging ? clamp(1 - (rem / dur), 0, 1) : 0;
-
-      const flashRem = Math.max(0, (state.core.energyFlashUntil || 0) - tt);
-      const flash = flashRem > 0 ? clamp(flashRem / 0.16, 0, 1) : 0;
-
-      let size = 140;
-      size += eng * (8 + 10*eng);
-      size += flash * 18;
-
-      // 아이콘 자체 글로우(빛나는 느낌)
-      if (eng > 0.001 || flash > 0.001) {
-        ctx.save();
-        ctx.globalCompositeOperation = "lighter";
-        ctx.globalAlpha = alpha * (0.10 + 0.22*eng + 0.28*flash);
-        const gg = ctx.createRadialGradient(CORE_POS.x, CORE_POS.y, 12, CORE_POS.x, CORE_POS.y, 64 + 80*eng + 90*flash);
-        gg.addColorStop(0, "rgba(255,255,255,0.70)");
-        gg.addColorStop(0.35, "rgba(147,197,253,0.55)");
-        gg.addColorStop(1, "rgba(147,197,253,0)");
-        ctx.fillStyle = gg;
-        ctx.beginPath();
-        ctx.arc(CORE_POS.x, CORE_POS.y, 90 + 60*eng + 70*flash, 0, Math.PI*2);
-        ctx.fill();
-        ctx.restore();
-      }
-
       if (coreIconReady) {
+        const size = 140;
         ctx.save();
         ctx.globalAlpha = alpha;
         ctx.drawImage(coreIcon, CORE_POS.x - size/2, CORE_POS.y - size/2, size, size);
@@ -5229,18 +4145,6 @@ if (state.phase === "wave" && state.wave === FINAL_WAVE) {
         ctx.fillStyle = "#60a5fa";
         ctx.beginPath();
         ctx.arc(CORE_POS.x, CORE_POS.y, 20, 0, Math.PI*2);
-        ctx.fill();
-        ctx.restore();
-      }
-
-      // 발사 플래시(짧고 강하게)
-      if (flash > 0.001) {
-        ctx.save();
-        ctx.globalCompositeOperation = "lighter";
-        ctx.globalAlpha = alpha * (0.30 * flash);
-        ctx.fillStyle = "rgba(255,255,255,0.9)";
-        ctx.beginPath();
-        ctx.arc(CORE_POS.x, CORE_POS.y, 28 + 42*(1-flash), 0, Math.PI*2);
         ctx.fill();
         ctx.restore();
       }
@@ -6308,34 +5212,9 @@ uiStats.innerHTML =
       btnRepair.disabled = !canUse;
       btnRepair.textContent = repCdLeft>0 ? `수리 (${repCdLeft.toFixed(1)}s)` : `수리 (-${state.core.repairCost})`;
       if (btnEnergy) {
-        const charging = !!state.core.energyCharging;
-        const chargeLeft = charging ? Math.max(0, state.core.energyChargeUntil - t) : 0;
-        const hasTargetNow = !!(state.enemies && state.enemies.some(e=>e && e.hp > 0));
-        btnEnergy.disabled = (state.phase !== 'wave') || charging || (engCdLeft>0) || !hasTargetNow;
-        btnEnergy.textContent = charging
-          ? `에너지포 충전 (${chargeLeft.toFixed(1)}s)`
-          : (engCdLeft>0 ? `에너지포 (${engCdLeft.toFixed(1)}s)` : `에너지포 (${Math.round(state.core.energyDmg||800)})`);
+        btnEnergy.disabled = (state.phase !== 'wave') || (engCdLeft>0) || !(state.enemies && state.enemies.length);
+        btnEnergy.textContent = engCdLeft>0 ? `에너지포 (${engCdLeft.toFixed(1)}s)` : `에너지포 (1000)`;
       }
-
-      if (mbEnergy){
-        const inWave = (state.phase === 'wave');
-        const charging = !!state.core.energyCharging;
-        const chargeLeft = charging ? Math.max(0, state.core.energyChargeUntil - t) : 0;
-        const hasTarget = !!(state.enemies && state.enemies.some(e=>e && e.hp > 0));
-        const canUseEnergy = inWave && !charging && (engCdLeft <= 0) && hasTarget;
-        mbEnergy.disabled = !canUseEnergy;
-        const sp = mbEnergy.querySelector('span');
-        if (sp) sp.textContent = '에너지포';
-        const sm = mbEnergy.querySelector('small');
-        if (sm){
-          if (!inWave) sm.textContent = '웨이브';
-          else if (charging) sm.textContent = `충전 ${Math.ceil(chargeLeft)}s`;
-          else if (!hasTarget) sm.textContent = '대상없음';
-          else if (engCdLeft > 0) sm.textContent = `${Math.ceil(engCdLeft)}s`;
-          else sm.textContent = String(Math.round(state.core.energyDmg||800));
-        }
-      }
-
       if (btnBg) {
         btnBg.textContent = (state.ui.bgMode===0) ? '배경 끔' : (state.ui.bgMode===2 ? '배경 강함' : '배경 약함');
       }
@@ -6704,8 +5583,3 @@ if (mbFinalRow) {
   }
 
 })();
-
-</script>
-
-</body>
-</html>
