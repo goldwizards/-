@@ -60,18 +60,35 @@
     if (f.kind === "shieldWave") {
       const r = lerp(f.r0, f.r1, t);
       ctx.save();
-      ctx.globalAlpha = (1 - t) * 0.65;
+      ctx.globalCompositeOperation = "lighter";
+      ctx.globalAlpha = (1 - t) * 0.5;
+      ctx.shadowColor = "#7dd3fc";
+      ctx.shadowBlur = 12;
+      ctx.beginPath();
+      ctx.ellipse(f.x, f.y, r*0.88, r*0.80, 0, 0, Math.PI*2);
+      ctx.fillStyle = "rgba(125,211,252,0.16)";
+      ctx.fill();
+
+      ctx.globalAlpha = (1 - t) * 0.55;
       ctx.beginPath();
       ctx.ellipse(f.x, f.y, r*1.05, r*0.95, 0, 0, Math.PI*2);
       ctx.strokeStyle = f.color;
       ctx.lineWidth = 5;
       ctx.stroke();
 
-      ctx.globalAlpha *= 0.8;
+      ctx.shadowBlur = 6;
+      ctx.globalAlpha *= 0.85;
       ctx.beginPath();
       ctx.ellipse(f.x, f.y, r*0.78, r*0.68, 0, 0, Math.PI*2);
       ctx.strokeStyle = "#93c5fd";
       ctx.lineWidth = 2;
+      ctx.stroke();
+
+      ctx.globalAlpha = (1 - t) * 0.35;
+      ctx.beginPath();
+      ctx.ellipse(f.x, f.y, r*0.55, r*0.48, 0, 0, Math.PI*2);
+      ctx.strokeStyle = "#e0f2fe";
+      ctx.lineWidth = 1.5;
       ctx.stroke();
       ctx.restore();
       return;
@@ -818,4 +835,3 @@ if (mbFinalRow) {
   }
 
 })();
-
