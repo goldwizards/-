@@ -9,6 +9,8 @@
     c.resChargeThisSec = 0;
     c.resDischargeReadyAt = 0;
     c.resAbsorbEvents = [];
+    c.resChargePenaltyHpUntil = 0;
+    c.resChargePenaltyBreakUntil = 0;
   }
 
   function resonanceGauge01(){
@@ -51,6 +53,13 @@
     if ((t - c.resChargeSecStartAt) >= 1.0) { c.resChargeSecStartAt = t; c.resChargeThisSec = 0; }
     const denom = Math.max(1, c.shieldMax * RESONANCE_CFG.denomMul);
     let add = (absAmt / denom) * 100;
+
+    // HP 직격/실드 파괴 페널티는 '게이지 감소'가 아니라 '충전 효율 감소'
+    let mul = 1.0;
+    if (t < (c.resChargePenaltyHpUntil||0)) mul = Math.min(mul, 0.55);
+    if (t < (c.resChargePenaltyBreakUntil||0)) mul = Math.min(mul, 0.35);
+    add *= mul;
+
     add = Math.min(add, RESONANCE_CFG.hitCap);
     const room = RESONANCE_CFG.secCap - (c.resChargeThisSec||0);
     if (room <= 0) return;
@@ -63,13 +72,17 @@
   function resonancePenaltyHp(){
     if (state.core.passiveId !== 'resonance') return;
     resonanceEnsure();
-    state.core.resGauge = clamp((state.core.resGauge||0) - RESONANCE_CFG.hpPenalty, 0, 100);
+    const c = state.core;
+    const t = gameSec();
+    c.resChargePenaltyHpUntil = Math.max((c.resChargePenaltyHpUntil||0), t + 6.0);
   }
 
   function resonancePenaltyBreak(){
     if (state.core.passiveId !== 'resonance') return;
     resonanceEnsure();
-    state.core.resGauge = clamp((state.core.resGauge||0) - RESONANCE_CFG.breakPenalty, 0, 100);
+    const c = state.core;
+    const t = gameSec();
+    c.resChargePenaltyBreakUntil = Math.max((c.resChargePenaltyBreakUntil||0), t + 3.0);
   }
 
   function resonancePickTarget(){
@@ -92,14 +105,15 @@
     const c = state.core;
     const t = gameSec();
     const target = resonancePickTarget();
-    if (!target) { c.resGauge = 0; c.resDischargeReadyAt = t + RESONANCE_CFG.dischargeCd; return; }
+    if (!target) { c.resDischargeReadyAt = t + RESONANCE_CFG.dischargeCd; return; }
 
     resonancePrune();
     const recent = resonanceRecentAbsSum();
     let dmg = recent * RESONANCE_CFG.dischargeMul;
     const cap = c.shieldMax * RESONANCE_CFG.dischargeCapMul;
     dmg = Math.min(dmg, cap);
-    if (target.isFinalBoss) dmg *= 0.70;
+    // 최종보스는 공명 방출을 너무 죽이지 않도록 완만하게만 보정
+    if (target.isFinalBoss) dmg *= 0.85;
 
     // 타격
     target.hp -= dmg;
@@ -122,10 +136,13 @@
     const t = gameSec();
     resonancePrune();
 
-    // 흡수 공백 후 감쇠
+    // 흡수 공백 후 감쇠 (최종전은 유지시간을 조금 더 늘려 체감 강화)
     const since = t - (c.resLastAbsorbAt||-999);
-    if (since > RESONANCE_CFG.decayWait && (c.resGauge||0) > 0) {
-      c.resGauge = clamp((c.resGauge||0) - RESONANCE_CFG.decayPerSec*dt, 0, 100);
+    const isFinal = (state.wave === FINAL_WAVE);
+    const decayWait = isFinal ? (RESONANCE_CFG.decayWait + 1.0) : RESONANCE_CFG.decayWait;
+    const decayPerSec = isFinal ? (RESONANCE_CFG.decayPerSec * 0.60) : RESONANCE_CFG.decayPerSec;
+    if (since > decayWait && (c.resGauge||0) > 0) {
+      c.resGauge = clamp((c.resGauge||0) - decayPerSec*dt, 0, 100);
     }
 
     // 100% 도달 시 자동 방출

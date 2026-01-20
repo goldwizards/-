@@ -749,16 +749,15 @@ const uiFinalSupportDesc = document.getElementById("uiFinalSupportDesc");
 
   // ---------- Resonance core (공명 반격) ----------
   const RESONANCE_CFG = {
-    denomMul: 0.45,      // shieldMax * 0.45 를 100% 기준 흡수량으로
-    hitCap: 25,          // 1회 충전 상한(+%)
-    secCap: 50,          // 1초 충전 상한(+%)
-    decayWait: 2.0,      // 흡수 공백(초)
-    decayPerSec: 8.0,    // 공백 이후 초당 감소(%p)
-    hpPenalty: 35,       // HP 직접 피해 시 -%
-    breakPenalty: 60,    // 실드 파괴 시 -%
-    dischargeCd: 2.5,    // 방출 쿨(초)
-    dischargeMul: 0.35,  // 최근 흡수량의 35%
-    dischargeCapMul: 1.2 // shieldMax * 1.2 상한
+    // ✅ 공명 버프: 게이지 유지시간 증가 + 충전 효율 기반 페널티(HP 직격/실드 파괴)
+    denomMul: 0.40,        // shieldMax * 0.40 를 100% 기준 흡수량으로(조금 더 잘 참)
+    hitCap: 30,            // 1회 충전 상한(+%)
+    secCap: 60,            // 1초 충전 상한(+%)
+    decayWait: 4.0,        // 흡수 공백(초)
+    decayPerSec: 4.0,      // 공백 이후 초당 감소(%p)
+    dischargeCd: 2.5,      // 방출 쿨(초)
+    dischargeMul: 0.45,    // 최근 흡수량의 45%
+    dischargeCapMul: 1.50  // shieldMax * 1.50 상한
   };
 
   function resonanceEnsure(){
@@ -768,4 +767,10 @@ const uiFinalSupportDesc = document.getElementById("uiFinalSupportDesc");
     if (typeof c.resChargeSecStartAt !== 'number') c.resChargeSecStartAt = gameSec();
     if (typeof c.resChargeThisSec !== 'number') c.resChargeThisSec = 0;
     if (typeof c.resDischargeReadyAt !== 'number') c.resDischargeReadyAt = 0;
+    // HP 직격/실드 파괴 페널티: 게이지 감소가 아니라 '충전 효율' 감소
+    if (typeof c.resChargePenaltyHpUntil !== 'number') c.resChargePenaltyHpUntil = 0;
+    if (typeof c.resChargePenaltyBreakUntil !== 'number') c.resChargePenaltyBreakUntil = 0;
     if (!Array.isArray(c.resAbsorbEvents)) c.resAbsorbEvents = [];
+    // 충전 효율 페널티(HP 직격/실드 파괴)
+    if (typeof c.resChargeHpUntil !== 'number') c.resChargeHpUntil = 0;
+    if (typeof c.resChargeBreakUntil !== 'number') c.resChargeBreakUntil = 0;

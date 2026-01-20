@@ -1,5 +1,3 @@
-
-
 (() => {
   try {
   // ---------- Canvas ----------
@@ -1008,13 +1006,6 @@ shieldRegenBlockedUntil: 0,
       aegisCd: 18.0,
       aegisReadyAt: 0,
       aegisActiveUntil: 0,
-
-      // ----- Overload (임계 과부하) burst/mark -----
-      overloadBurstUntil: 0,
-      overloadBurstReadyAt: 0,
-      overloadWasAbove30: true,
-      overloadExtendReadyAt: 0,
-      overloadKickReadyAt: 0,
     },
 
     spawn: null
@@ -1501,18 +1492,16 @@ const uiFinalSupportDesc = document.getElementById("uiFinalSupportDesc");
         "보호막이 흡수한 피해로 ‘공명 게이지’가 차오릅니다.",
         "게이지에 따라 포탑 피해/공속이 증가합니다. (최대 피해 +30%, 공속 +18%)",
         "게이지 100%가 되면 최근 흡수량 기반의 ‘공명 방출’이 자동 발동합니다.",
-        "HP 직접 피해/실드 파괴 시 게이지가 크게 감소합니다."
+        "방출 시 주변 확산 피해 + ‘노출’(받는 피해↑) 디버프가 걸립니다.",
+        "HP 직격/실드 파괴 시 일정 시간 게이지 충전 효율이 감소합니다."
       ]
     },
     overload: {
       id:"overload", name:"임계 과부하", colorClass:"passiveRed",
       desc:[
-        "HP 30%↓ 진입 시(내려올 때) 쇼크웨이브(넉백+둔화 0.6s) + 과부하 버스트 6s 발동 (쿨 18s)",
-        "포탑 적중 시 표식(최대 5중첩/4s 갱신): 일반/엘리트 +3%p×중첩, 보스/최종보스 +1.5%p×중첩",
-        "버스트 6초: 포탑 탄 관통 +1 / (스플래시 없는 포탑은) 90px 소형 폭발(35%) 추가",
-        "버스트 6초: 최종보스 ‘포탑 내성’ 25% 부분 무시 + 투사체 붉은 트레일",
-        "연계: HP≤40% 수리 시 주변 적(보스 우선) 표식 +2 / 버스트 남은 <2s면 +2s 연장(20s ICD) / 긴급 보호막 사용 시 다음 쿨 -6s(20s ICD)"
-]
+        "저체력 구간에서 포탑 화력이 급격히 증가합니다.",
+        "보호막 재생이 급격히 증가합니다.",
+        "저체력일수록 받는 피해가 감소합니다."]
     },
     overdrive: {
       id:"overdrive", name:"코어 오버드라이브", colorClass:"passivePurple",
@@ -1536,42 +1525,16 @@ const uiFinalSupportDesc = document.getElementById("uiFinalSupportDesc");
     decayPerSec: 4.0,      // 공백 이후 초당 감소(%p)
     dischargeCd: 2.5,      // 방출 쿨(초)
     dischargeMul: 0.45,    // 최근 흡수량의 45%
-    dischargeCapMul: 1.50  // shieldMax * 1.50 상한
+    dischargeCapMul: 1.50, // shieldMax * 1.50 상한
+
+    // ✅ 방출 체감/효과 강화
+    dischargeSplashR: 190,       // 주변 확산 반경(px)
+    dischargeSplashMul: 0.35,    // 확산 피해 계수(메인 대비)
+    dischargeExposeDur: 3.2,     // 노출 지속(초)
+    dischargeExposeMul: 1.15,    // 노출 중 받는 피해(일반/엘리트)
+    dischargeExposeMulBoss: 1.08,// 노출 중 받는 피해(보스/최종보스)
+    dischargeKeepGauge: 25       // 방출 후 남기는 게이지(%)
   };
-
-  // ---------- Overload core (임계 과부하) ----------
-  const OVERLOAD_CFG = {
-    triggerHp: 0.30,
-    shockR: 240,
-    shockKnock: 78,
-    shockSlowDur: 0.6,
-    shockSlowMul: 0.55,
-    burstDur: 6.0,
-    burstCd: 18.0,
-
-    markMax: 5,
-    markDur: 4.0,
-    markBonus: 0.03,       // normal/elite
-    markBonusBoss: 0.015,  // boss/final
-
-    burstPierceAdd: 1,
-    miniSplashR: 90,
-    miniSplashMul: 0.35,
-
-    finalBossResistIgnore: 0.25,
-
-    repairMarkHp: 0.40,
-    repairMarkAdd: 2,
-    repairMarkTargets: 4,
-
-    extendIfRemainLt: 2.0,
-    extendAdd: 2.0,
-    extendIcd: 20.0,
-
-    aegisCdReduce: 6.0,
-    aegisIcd: 20.0,
-  };
-
 
   function resonanceEnsure(){
     const c = state.core;
@@ -1584,6 +1547,7 @@ const uiFinalSupportDesc = document.getElementById("uiFinalSupportDesc");
     if (typeof c.resChargePenaltyHpUntil !== 'number') c.resChargePenaltyHpUntil = 0;
     if (typeof c.resChargePenaltyBreakUntil !== 'number') c.resChargePenaltyBreakUntil = 0;
     if (!Array.isArray(c.resAbsorbEvents)) c.resAbsorbEvents = [];
+    if (typeof c.resLastFullRecent !== 'number') c.resLastFullRecent = 0;
     // 충전 효율 페널티(HP 직격/실드 파괴)
     if (typeof c.resChargeHpUntil !== 'number') c.resChargeHpUntil = 0;
     if (typeof c.resChargeBreakUntil !== 'number') c.resChargeBreakUntil = 0;
@@ -1599,6 +1563,7 @@ const uiFinalSupportDesc = document.getElementById("uiFinalSupportDesc");
     c.resAbsorbEvents = [];
     c.resChargePenaltyHpUntil = 0;
     c.resChargePenaltyBreakUntil = 0;
+    c.resLastFullRecent = 0;
   }
 
   function resonanceGauge01(){
@@ -1655,7 +1620,12 @@ const uiFinalSupportDesc = document.getElementById("uiFinalSupportDesc");
     if (add <= 0.01) return;
     c.resChargeThisSec += add;
     c.resGauge = clamp((c.resGauge||0) + add, 0, 100);
-  }
+    if ((c.resGauge||0) >= 100) {
+      resonancePrune();
+      // 100% 도달 시점의 최근 흡수량을 저장(웨이브 사이 방출 지연 시 0딜 방지)
+      c.resLastFullRecent = Math.max(c.resLastFullRecent||0, resonanceRecentAbsSum());
+    }
+}
 
   function resonancePenaltyHp(){
     if (state.core.passiveId !== 'resonance') return;
@@ -1688,66 +1658,84 @@ const uiFinalSupportDesc = document.getElementById("uiFinalSupportDesc");
     }
     return best;
   }
+
   function resonanceDischarge(){
     const c = state.core;
     const t = gameSec();
     const target = resonancePickTarget();
-    if (!target) { c.resDischargeReadyAt = t + RESONANCE_CFG.dischargeCd; return; }
+    if (!target) {
+      // 대상이 없으면(웨이브 사이 등) 게이지를 소모하지 않고 100% 유지
+      c.resGauge = 100;
+      c.resLastAbsorbAt = t; // 감쇠 방지(유지)
+      c.resDischargeReadyAt = t + 0.4; // 짧게 재시도
+      return;
+    }
 
     resonancePrune();
-    const recent = resonanceRecentAbsSum();
+    let recent = resonanceRecentAbsSum();
+    recent = Math.max(recent, (c.resLastFullRecent||0));
 
-    // 메인 데미지(최근 3초 흡수량 기반)
+    // 메인 피해
     let dmg = recent * RESONANCE_CFG.dischargeMul;
     const cap = c.shieldMax * RESONANCE_CFG.dischargeCapMul;
     dmg = Math.min(dmg, cap);
 
-    // 최종보스 내성 로직만 적용(추가 감쇄 없음)
-    if (target.isFinalBoss) dmg *= finalBossIncomingMul();
-
-    const mainDmg = dmg;
-
-    // 메인 타격 + 노출
-    target.hp -= mainDmg;
-    applyResExpose(target, 3.2);
-
-    // 주변 확산 피해(190px)
-    const R = 190;
+    // ---- 적용 대상(타겟 + 주변 확산) ----
+    const victims = [target];
+    const R = RESONANCE_CFG.dischargeSplashR;
     for (const e of state.enemies) {
       if (!e || e.hp <= 0 || e === target) continue;
       const d = dist(e.x, e.y, target.x, target.y);
-      if (d > R) continue;
-      const k = clamp(d / R, 0, 1);
-      const fall = lerp(1.0, 0.35, k); // edge => 0.35
-      let sdmg = mainDmg * 0.35 * fall; // center 0.35, edge 0.1225
-      if (e.isFinalBoss) sdmg *= finalBossIncomingMul();
-      e.hp -= sdmg;
-      applyResExpose(e, 3.2);
+      if (d <= R) victims.push(e);
     }
 
-    // 연출: 다중 빔(2겹) + 링 2중 + 화면 플래시 + 카메라 흔들림
-    fxLine(CORE_POS.x, CORE_POS.y, target.x, target.y, '#fb923c', 0.55, 10);
-    fxLine(CORE_POS.x, CORE_POS.y, target.x, target.y, '#fdba74', 0.55, 3);
-    fxRing(CORE_POS.x, CORE_POS.y, CORE_RADIUS+12, CORE_RADIUS+170, '#fdba74');
-    fxRing(target.x, target.y, 10, 120, '#fdba74');
-    fxRing(target.x, target.y, 16, 160, '#fb923c');
-
-    fxText(`공명 방출! -${Math.round(mainDmg)}`, CORE_POS.x, CORE_POS.y - 128, '#fdba74');
-
-    state.resFlashX = target.x;
-    state.resFlashY = target.y;
-    state.resFlashDur = 0.16;
-    state.resFlashUntil = t + state.resFlashDur;
-
+    // ---- 연출(체감 강화) ----
+    // 화면 흔들림
     state.camShakeMag = 10;
-    state.camShakeDur = 0.11;
+    state.camShakeDur = 0.18;
     state.camShakeUntil = t + state.camShakeDur;
 
+    // 코어→타겟 다중 빔 + 플래시
+    fxLine(CORE_POS.x, CORE_POS.y, target.x, target.y, '#fdba74', 0.22, 10);
+    fxLine(CORE_POS.x, CORE_POS.y, target.x, target.y, 'rgba(255,255,255,0.85)', 0.16, 4);
+    fxRing(CORE_POS.x, CORE_POS.y, CORE_RADIUS+10, CORE_RADIUS+190, 'rgba(253,186,116,0.95)');
+    fxRing(CORE_POS.x, CORE_POS.y, CORE_RADIUS+24, CORE_RADIUS+280, 'rgba(253,186,116,0.40)');
+    fxRing(target.x, target.y, 14, 170, 'rgba(253,186,116,0.95)');
+    fxRing(target.x, target.y, 26, 260, 'rgba(253,186,116,0.35)');
+    try { fxFlash(target.x, target.y, 520, 'rgba(253,186,116,1)'); } catch {}
+
+    // 메인 타격 텍스트
+    fxText(`공명 방출! -${Math.round(dmg)}`, target.x, target.y - 16, '#fdba74');
+
+    // 사운드(짧고 묵직)
     try { SFX.play('blast'); } catch {}
     try { sfxShieldHit(); } catch {}
 
-    // 끊김 완화: 0이 아니라 25% 남김
-    c.resGauge = 25;
+    // ---- 피해/디버프 적용 ----
+    const exposeUntil = t + RESONANCE_CFG.dischargeExposeDur;
+    for (const v of victims) {
+      const dv = dist(v.x, v.y, target.x, target.y);
+      let vdmg = dmg;
+      if (v !== target) {
+        const fall = clamp(1 - (dv / R), 0, 1);
+        vdmg = dmg * RESONANCE_CFG.dischargeSplashMul * (0.35 + 0.65*fall);
+      }
+      // ✅ 최종보스 감쇄 중복 제거: 방출 자체의 추가 감쇄 없이, 최종보스 내성 로직만 적용
+      if (v.isFinalBoss) vdmg *= finalBossIncomingMul();
+      v.hp -= vdmg;
+      v.resExposeUntil = Math.max(v.resExposeUntil||0, exposeUntil);
+
+      // 주변 적에게는 번개처럼 튀는 느낌
+      if (v !== target) {
+        fxLine(target.x, target.y, v.x, v.y, 'rgba(253,186,116,0.75)', 0.14, 4);
+        fxRing(v.x, v.y, 10, 90, 'rgba(253,186,116,0.55)');
+      }
+    }
+
+    // 방출 후: 0이 아니라 일부 남겨서 끊기는 체감 제거
+    c.resGauge = RESONANCE_CFG.dischargeKeepGauge;
+    c.resLastAbsorbAt = t;
+    c.resLastFullRecent = 0;
     c.resDischargeReadyAt = t + RESONANCE_CFG.dischargeCd;
   }
 
@@ -1841,13 +1829,6 @@ function passiveSelected(){ return !!state.core.passiveId; }
     resonanceReset();
     state.core.rebuildEmergencyUntil = 0;
     state.core.rebuildEmergencyReadyAt = 0;
-
-    // 임계 과부하 누적 상태 리셋
-    state.core.overloadBurstUntil = 0;
-    state.core.overloadBurstReadyAt = 0;
-    state.core.overloadWasAbove30 = true;
-    state.core.overloadExtendReadyAt = 0;
-    state.core.overloadKickReadyAt = 0;
 
     setMsg(`패시브 선택: ${CORE_PASSIVES[id].name}`, 2.0);
     refreshCorePassiveUI();
@@ -2500,9 +2481,6 @@ const cheatModal = document.getElementById("cheatModal");
     fxText("긴급 보호막!", CORE_POS.x, CORE_POS.y - 64, "#93c5fd");
     fxShieldWave(CORE_POS.x, CORE_POS.y, CORE_RADIUS + 18);
     fxRing(CORE_POS.x, CORE_POS.y, CORE_RADIUS+10, 120, "#60a5fa");
-
-    // 임계 과부하 연계: 다음 버스트/쇼크 쿨 -6s (20s ICD)
-    overloadOnAegis();
   }
 
   
@@ -2510,7 +2488,6 @@ const cheatModal = document.getElementById("cheatModal");
     if (state.phase === "fail") return;
 
     const t = gameSec();
-    const hpFracBefore = (state.core.hpMax>0) ? (state.core.hp / state.core.hpMax) : 1;
     const cdLeft = Math.max(0, state.core.repairReadyAt - t);
 
     if (cdLeft > 0) {
@@ -2541,9 +2518,6 @@ const cheatModal = document.getElementById("cheatModal");
     SFX.play("repair");
     fxRing(CORE_POS.x, CORE_POS.y, CORE_RADIUS+10, CORE_RADIUS+90, "#67f3a6");
     fxText(`수리 +${(heal|0)}`, CORE_POS.x, CORE_POS.y - 64, "#67f3a6");
-
-    // 임계 과부하 연계(HP<=40% 표식/버스트 연장)
-    overloadOnRepair(hpFracBefore);
   }
 
     function pickEnergyTarget(){
@@ -2864,149 +2838,25 @@ state.enemies.push(eObj);
   }
 // ---------- Final boss helpers ----------
 function finalBossIncomingMul(){
-  // 웨이브30 최종보스 전용: 덕칠(포탑 개수) 기반 내성만 적용 (업그레이드 내성 제거)
+  // 웨이브30 최종보스 전용: 덕칠/업그레이드 순삭 방지 내성(더 강하게)
   const tc = state.turrets.length;
+
+  // 10개부터 점감 시작 (기존 12)
   const extra = Math.max(0, tc - 10);
   const spamDR = clamp(extra * 0.055, 0, 0.70); // 포탑 많을수록 최대 70%까지 감쇄
-  const mul = 1 - spamDR;
-  // 최소 피해 22% 보장
+
+  const u = state.upg;
+  // 업그레이드 누적 내성 (상한 상향)
+  const upgPower =
+      (u.turretDmg*0.09) + (u.turretFire*0.07) + (u.turretRange*0.04) +
+      (u.projSpeed*0.05) + (u.turretCrit*0.06) + (u.splashRadius*0.06);
+
+  const upgDR = clamp(upgPower, 0, 0.35);
+  const mul = 1 - (spamDR + upgDR);
+
+  // 최소 피해 22% 보장 (기존 35%) => 훨씬 안 녹음
   return clamp(mul, 0.22, 1.0);
 }
-
-// ---------- Expose (Resonance) ----------
-function enemyExposeMul(e){
-  const t = gameSec();
-  if (e && t < (e.resExposeUntil||0)) return 1 + (e.resExposeBonus||0);
-  return 1.0;
-}
-function applyResExpose(e, dur=3.2){
-  const t = gameSec();
-  const isBoss = (e && (e.kind === 'boss' || e.isFinalBoss));
-  const bonus = isBoss ? 0.08 : 0.15;
-  e.resExposeBonus = bonus;
-  e.resExposeUntil = Math.max(e.resExposeUntil||0, t + dur);
-}
-
-// ---------- Overload (mark/burst) ----------
-function overloadEnsure(){
-  const c = state.core;
-  if (typeof c.overloadBurstUntil !== 'number') c.overloadBurstUntil = 0;
-  if (typeof c.overloadBurstReadyAt !== 'number') c.overloadBurstReadyAt = 0;
-  if (typeof c.overloadWasAbove30 !== 'boolean') c.overloadWasAbove30 = true;
-  if (typeof c.overloadExtendReadyAt !== 'number') c.overloadExtendReadyAt = 0;
-  if (typeof c.overloadKickReadyAt !== 'number') c.overloadKickReadyAt = 0;
-}
-function overloadBurstActive(){
-  overloadEnsure();
-  return gameSec() < (state.core.overloadBurstUntil||0);
-}
-function applyOverloadMark(e, add=1){
-  if (!e) return;
-  const t = gameSec();
-  e.ovMarkStacks = clamp((e.ovMarkStacks||0) + add, 0, OVERLOAD_CFG.markMax);
-  e.ovMarkUntil  = Math.max(e.ovMarkUntil||0, t + OVERLOAD_CFG.markDur);
-}
-function overloadMarkBonus(e){
-  if (!e) return 0;
-  const t = gameSec();
-  if (t >= (e.ovMarkUntil||0)) return 0;
-  const st = clamp(e.ovMarkStacks||0, 0, OVERLOAD_CFG.markMax);
-  if (st <= 0) return 0;
-  const isBoss = (e.kind === 'boss') || e.isFinalBoss;
-  return st * (isBoss ? OVERLOAD_CFG.markBonusBoss : OVERLOAD_CFG.markBonus);
-}
-
-function overloadShockBurst(){
-  overloadEnsure();
-  const t = gameSec();
-  state.core.overloadBurstUntil   = t + OVERLOAD_CFG.burstDur;
-  state.core.overloadBurstReadyAt = t + OVERLOAD_CFG.burstCd;
-
-  // Shockwave: knockback + slow
-  const R = OVERLOAD_CFG.shockR;
-  for (const e of state.enemies) {
-    const dx = e.x - CORE_POS.x, dy = e.y - CORE_POS.y;
-    const d = Math.hypot(dx,dy) || 1;
-    if (d > R) continue;
-    const k = 1 - (d / R);
-    const push = OVERLOAD_CFG.shockKnock * (0.35 + 0.65*k);
-    e.x += (dx/d) * push;
-    e.y += (dy/d) * push;
-    // slow
-    e.slowMul  = Math.min(e.slowMul || 1.0, OVERLOAD_CFG.shockSlowMul);
-    e.slowUntil = Math.max(e.slowUntil || 0, t + OVERLOAD_CFG.shockSlowDur);
-  }
-
-  // FX + camera shake
-  fxFlash(CORE_POS.x, CORE_POS.y, 640, 'rgba(251,113,133,1)');
-  fxRing(CORE_POS.x, CORE_POS.y, CORE_RADIUS+14, CORE_RADIUS+R, '#fb7185');
-  fxRing(CORE_POS.x, CORE_POS.y, CORE_RADIUS+28, CORE_RADIUS+R*0.78, '#fda4af');
-  fxText('쇼크웨이브!', CORE_POS.x, CORE_POS.y - 156, '#fb7185');
-  fxText('과부하 버스트 6s', CORE_POS.x, CORE_POS.y - 138, '#fda4af');
-
-  state.camShakeUntil = t + 0.14;
-  state.camShakeDur   = 0.14;
-  state.camShakeMag   = 10;
-
-  try { SFX.play('blast'); } catch {}
-  try { SFX.play('shield_hit'); } catch {}
-}
-
-function updateOverload(dt){
-  if (state.core.passiveId !== 'overload') return;
-  overloadEnsure();
-  const hpFrac = (state.core.hpMax>0) ? (state.core.hp/state.core.hpMax) : 1;
-  const above = hpFrac > OVERLOAD_CFG.triggerHp + 1e-6;
-  if (state.core.overloadWasAbove30 && !above) {
-    const t = gameSec();
-    if (t >= (state.core.overloadBurstReadyAt||0)) {
-      overloadShockBurst();
-    }
-  }
-  state.core.overloadWasAbove30 = above;
-}
-
-function overloadOnRepair(hpFracBefore){
-  if (state.core.passiveId !== 'overload') return;
-  overloadEnsure();
-  const t = gameSec();
-
-  if (hpFracBefore <= OVERLOAD_CFG.repairMarkHp) {
-    const list = state.enemies.slice();
-    list.sort((a,b)=>{
-      const ap = (a.isFinalBoss?2:(a.kind==='boss'?1:0));
-      const bp = (b.isFinalBoss?2:(b.kind==='boss'?1:0));
-      if (ap !== bp) return bp - ap;
-      return dist(a.x,a.y, CORE_POS.x, CORE_POS.y) - dist(b.x,b.y, CORE_POS.x, CORE_POS.y);
-    });
-    const n = Math.min(OVERLOAD_CFG.repairMarkTargets, list.length);
-    for (let i=0;i<n;i++){
-      applyOverloadMark(list[i], OVERLOAD_CFG.repairMarkAdd);
-      fxRing(list[i].x, list[i].y, 10, (list[i].r||12)+22, '#fb7185');
-    }
-    if (n>0) fxText('표식 +2', CORE_POS.x, CORE_POS.y - 84, '#fb7185');
-  }
-
-  if (t >= (state.core.overloadExtendReadyAt||0) && overloadBurstActive()) {
-    const rem = (state.core.overloadBurstUntil||0) - t;
-    if (rem > 0 && rem < OVERLOAD_CFG.extendIfRemainLt) {
-      state.core.overloadBurstUntil = t + rem + OVERLOAD_CFG.extendAdd;
-      state.core.overloadExtendReadyAt = t + OVERLOAD_CFG.extendIcd;
-      fxText('버스트 연장 +2s', CORE_POS.x, CORE_POS.y - 104, '#fda4af');
-    }
-  }
-}
-
-function overloadOnAegis(){
-  if (state.core.passiveId !== 'overload') return;
-  overloadEnsure();
-  const t = gameSec();
-  if (t < (state.core.overloadKickReadyAt||0)) return;
-  state.core.overloadKickReadyAt = t + OVERLOAD_CFG.aegisIcd;
-  state.core.overloadBurstReadyAt = Math.max(t, (state.core.overloadBurstReadyAt||0) - OVERLOAD_CFG.aegisCdReduce);
-  fxText('과부하 쿨 -6s', CORE_POS.x, CORE_POS.y - 88, '#fb7185');
-}
-
 
 function spawnEnemyForced(id, spec, x, y, elite=false){
   const arch = ENEMY_ARCH[id] || ENEMY_ARCH.grunt;
@@ -3259,8 +3109,6 @@ function updateFinalBoss(dt){
 
     if (state.projectiles.length >= projCap()) return;
 
-    const isOvBurst = (state.core.passiveId === "overload") && overloadBurstActive();
-
     state.projectiles.push({
       kind: "turret",
       x: t.x, y: t.y,
@@ -3272,10 +3120,7 @@ function updateFinalBoss(dt){
       slow: s.slow,
       life: 1.7,
       r: isCrit ? 4.6 : 3.5,
-      pierce: (s.pierce||0) + (isOvBurst ? OVERLOAD_CFG.burstPierceAdd : 0),
-      ovBurst: isOvBurst,
-      ovMiniSplash: (isOvBurst && ((s.splash||0) <= 0)),
-      ovTrail: isOvBurst,
+      pierce: (s.pierce||0),
       chain: (s.chain||0),
       chainRange: (s.chainRange||0),
       chainMul: (s.chainMul||0),
@@ -3294,8 +3139,6 @@ function updateFinalBoss(dt){
     const sp = e.projSpd || 320;
 
     if (state.projectiles.length >= projCap()) return;
-
-    const isOvBurst = (state.core.passiveId === "overload") && overloadBurstActive();
 
     state.projectiles.push({
       kind: "enemy",
@@ -3336,22 +3179,8 @@ function updateFinalBoss(dt){
   }
 
 function applyProjectileHit(p, hit){
-    // 임계 과부하: 포탑 적중 시 표식(최대 5중첩/4s)
-    if (p.kind === "turret" && state.core.passiveId === "overload") {
-      applyOverloadMark(hit, 1);
-    }
     let dmg = p.dmg;
-    dmg *= enemyExposeMul(hit);
-    // 과부하 표식: 받는 피해 증가
-    if (state.core.passiveId === "overload") dmg *= (1 + overloadMarkBonus(hit));
-    // 최종보스: 포탑 내성 (버스트 중 25% 부분 무시)
-    if (p.kind === "turret" && hit.isFinalBoss) {
-      let mul = finalBossIncomingMul();
-      if (state.core.passiveId === "overload" && p.ovBurst) {
-        mul = mul + (1 - mul) * OVERLOAD_CFG.finalBossResistIgnore;
-      }
-      dmg *= mul;
-    }
+    if (p.kind === "turret" && hit.isFinalBoss) dmg *= finalBossIncomingMul();
 
     const tNow = nowSec();
     if (tNow < (hit.resExposeUntil||0)) {
@@ -3374,12 +3203,10 @@ function applyProjectileHit(p, hit){
         if (best) {
           const mul = clamp(p.chainMul||0.5, 0.1, 0.9);
           let cdmg = p.dmg * mul;
-          cdmg *= enemyExposeMul(best);
-          if (state.core.passiveId === "overload") cdmg *= (1 + overloadMarkBonus(best));
-          if (best.isFinalBoss) {
-            let mulB = finalBossIncomingMul();
-            if (state.core.passiveId === "overload" && p.ovBurst) mulB = mulB + (1 - mulB) * OVERLOAD_CFG.finalBossResistIgnore;
-            cdmg *= mulB;
+          if (best.isFinalBoss) cdmg *= finalBossIncomingMul();
+          if (tNow < (best.resExposeUntil||0)) {
+            const m2 = (best.kind === "boss") ? RESONANCE_CFG.dischargeExposeMulBoss : RESONANCE_CFG.dischargeExposeMul;
+            cdmg *= m2;
           }
           best.hp -= cdmg;
           fxRing(best.x, best.y, 6, 30, "#fdba74");
@@ -3413,12 +3240,10 @@ function applyProjectileHit(p, hit){
           const coreLow = (state.core.hp / state.core.hpMax) <= 0.5;
           const splashMul = coreLow ? 0.50 : 0.65;
           let sdmg = p.dmg * splashMul * fall;
-          sdmg *= enemyExposeMul(e);
-          if (state.core.passiveId === "overload") sdmg *= (1 + overloadMarkBonus(e));
-          if (e.isFinalBoss) {
-            let mulF = finalBossIncomingMul();
-            if (state.core.passiveId === "overload" && p.ovBurst) mulF = mulF + (1 - mulF) * OVERLOAD_CFG.finalBossResistIgnore;
-            sdmg *= mulF;
+          if (e.isFinalBoss) sdmg *= finalBossIncomingMul();
+          if (tNow < (e.resExposeUntil||0)) {
+            const m3 = (e.kind === "boss") ? RESONANCE_CFG.dischargeExposeMulBoss : RESONANCE_CFG.dischargeExposeMul;
+            sdmg *= m3;
           }
           e.hp -= sdmg;
         }
@@ -3426,31 +3251,6 @@ function applyProjectileHit(p, hit){
       fxRing(p.x,p.y, 8, p.splash, "#93c5fd");
     } else {
       fxRing(p.x,p.y, 6, 36, "#93c5fd");
-    }
-
-    // 임계 과부하: 버스트 중(스플래시 없는 포탑) 소형 폭발 90px / 35% 피해
-    if (p.ovMiniSplash) {
-      const R2 = OVERLOAD_CFG.miniSplashR;
-      for (const e2 of state.enemies) {
-        if (!e2 || e2===hit) continue;
-        if (p.hitSet && p.hitSet.has(e2)) continue;
-        const d2 = dist(p.x,p.y, e2.x,e2.y);
-        if (d2 > R2) continue;
-        let mdmg = p.dmg * OVERLOAD_CFG.miniSplashMul;
-        mdmg *= enemyExposeMul(e2);
-        if (state.core.passiveId === "overload") mdmg *= (1 + overloadMarkBonus(e2));
-        if (e2.isFinalBoss) {
-          let mulX = finalBossIncomingMul();
-          if (state.core.passiveId === "overload" && p.ovBurst) mulX = mulX + (1 - mulX) * OVERLOAD_CFG.finalBossResistIgnore;
-          mdmg *= mulX;
-        }
-        if (tNow < (e2.resExposeUntil||0)) {
-          const m4 = (e2.kind === "boss") ? RESONANCE_CFG.dischargeExposeMulBoss : RESONANCE_CFG.dischargeExposeMul;
-          mdmg *= m4;
-        }
-        e2.hp -= mdmg;
-      }
-      fxRing(p.x,p.y, 10, R2, "#fb7185");
     }
   }
 
@@ -3465,6 +3265,8 @@ function fxLine(x1,y1,x2,y2, color, dur=0.9, width=4){
 
   function fxText(text,x,y,color){ state.fx.push({ kind:"text", x,y, t:0, dur:0.9, text, color }); }
   function fxShieldWave(x,y, radius){ state.fx.push({ kind:"shieldWave", x,y, t:0, dur:0.42, r0:radius, r1:radius+68, color:"#60a5fa" }); }
+
+  function fxFlash(x,y, r=520, color='rgba(253,186,116,1)'){ state.fx.push({ kind:"flash", x,y, t:0, dur:0.18, r, color }); }
 
   // ---------- Blue Flames ----------
   function spawnBlueFlame(intensity){
@@ -3916,36 +3718,6 @@ function fxLine(x1,y1,x2,y2, color, dur=0.9, width=4){
   state.crystals += Math.floor(10 + state.wave*2);
 }
 
-  function drawResonanceScreenFlash(){
-    const tt = gameSec();
-    const until = state.resFlashUntil || 0;
-    const rem = Math.max(0, until - tt);
-    if (rem <= 0) return;
-    const dur = state.resFlashDur || 0.16;
-    const k = clamp(rem / dur, 0, 1);
-    const a = 0.32 * k;
-    const x = (typeof state.resFlashX === 'number') ? state.resFlashX : CORE_POS.x;
-    const y = (typeof state.resFlashY === 'number') ? state.resFlashY : CORE_POS.y;
-
-    ctx.save();
-    ctx.globalAlpha = a;
-    ctx.globalCompositeOperation = 'lighter';
-    const r = lerp(180, 520, 1-k);
-    const g = ctx.createRadialGradient(x, y, 0, x, y, r);
-    g.addColorStop(0.0, 'rgba(255,237,213,1)');
-    g.addColorStop(0.35, 'rgba(253,186,116,0.85)');
-    g.addColorStop(1.0, 'rgba(253,186,116,0)');
-    ctx.fillStyle = g;
-    ctx.fillRect(0,0,W,H);
-
-    // very light full-screen blink
-    ctx.globalAlpha = a * 0.22;
-    ctx.fillStyle = 'rgba(253,186,116,1)';
-    ctx.fillRect(0,0,W,H);
-    ctx.restore();
-  }
-
-
 
   function clearWave(){
   if (state.phase === "fail") return;
@@ -4285,13 +4057,6 @@ function restart(){
     resonanceReset();
     state.core.rebuildEmergencyUntil = 0;
     state.core.rebuildEmergencyReadyAt = 0;
-
-    // 임계 과부하 누적 상태 리셋
-    state.core.overloadBurstUntil = 0;
-    state.core.overloadBurstReadyAt = 0;
-    state.core.overloadWasAbove30 = true;
-    state.core.overloadExtendReadyAt = 0;
-    state.core.overloadKickReadyAt = 0;
     refreshCorePassiveUI();
 
     // BGM: 기본(build) 모드로
@@ -4472,9 +4237,6 @@ if (gameSec() >= state.core.shieldRegenBlockedUntil) {
 
     // 공명 반격: 게이지 감쇠/방출 처리
     updateResonance(dt);
-
-    // 임계 과부하: HP 30%↓ 진입 트리거/버스트 관리
-    updateOverload(dt);
 
     
     // auto-start next wave (clear phase)
@@ -4825,7 +4587,6 @@ if (state.phase === "wave" && state.wave === FINAL_WAVE) {
 
     // explosion flash on top
     drawBlueExplosionFlash();
-    drawResonanceScreenFlash();
 
     if (state.phase !== "win") drawTopHUD();
     if (state.phase !== "win") drawBossHUD();
@@ -5551,6 +5312,19 @@ function drawEnemy(e){
       ctx.restore();
     }
 
+    // 공명 노출(방출 후): 표시 링
+    if (time < (e.resExposeUntil||0)) {
+      const kk = clamp((e.resExposeUntil - time) / (RESONANCE_CFG.dischargeExposeDur||3.2), 0, 1);
+      ctx.save();
+      ctx.globalAlpha = 0.22 + 0.26*Math.sin(time*10) + 0.20*kk;
+      ctx.strokeStyle = 'rgba(253,186,116,0.95)';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(e.x, e.y + wob, e.r + 11, 0, Math.PI*2);
+      ctx.stroke();
+      ctx.restore();
+    }
+
     withTransform(e.x, e.y + wob, rot, () => {
       ctx.save();
       ctx.fillStyle = fill;
@@ -5687,52 +5461,11 @@ function drawEnemy(e){
     ctx.fillStyle = e.elite ? "#fbbf24" : base;
     ctx.fillRect(e.x - w/2, (e.y + wob) - br - (e.isFinalBoss ? 20 : 14), w*hpR, h);
     ctx.restore();
-    // 노출(공명) 상태 표시: 주황빛 링
-    const exT = gameSec();
-    if (exT < (e.resExposeUntil||0)) {
-      const k = clamp(((e.resExposeUntil||0) - exT) / 3.2, 0, 1);
-      ctx.save();
-      ctx.globalAlpha = 0.22 + 0.28*k;
-      ctx.strokeStyle = "#fdba74";
-      ctx.lineWidth = 5;
-      ctx.beginPath();
-      ctx.arc(e.x, (e.y + wob), e.r + 10 + 3*Math.sin(nowSec()*10 + e.seedAng), 0, Math.PI*2);
-      ctx.stroke();
-      ctx.restore();
-    }
-
-    // 과부하 표식 상태 표시: 핑크 링
-    if (exT < (e.ovMarkUntil||0) && (e.ovMarkStacks||0) > 0) {
-      const st = clamp(e.ovMarkStacks||0, 0, OVERLOAD_CFG.markMax);
-      ctx.save();
-      ctx.globalAlpha = 0.23 + 0.08*st + 0.10*Math.sin(nowSec()*12);
-      ctx.strokeStyle = "rgba(251,113,133,0.95)";
-      ctx.lineWidth = 4;
-      ctx.beginPath();
-      ctx.arc(e.x, (e.y + wob), e.r + 12 + st*1.2, 0, Math.PI*2);
-      ctx.stroke();
-      ctx.restore();
-    }
   }
 
   function drawProjectile(p){
-    let col = (p.kind==="enemy" ? "#fbbf24" : (p.slow>0 ? "#a7f3d0" : "#93c5fd"));
-    // Overload burst: red tone + short trail
-    if (p.kind === "turret" && p.ovBurst) col = "#fb7185";
+    const col = (p.kind==="enemy" ? "#fbbf24" : (p.slow>0 ? "#a7f3d0" : "#93c5fd"));
     const ang = Math.atan2(p.vy||0, p.vx||0);
-    if (p.kind === "turret" && p.ovBurst) {
-      const tx = p.x - (p.vx||0) * 0.03;
-      const ty = p.y - (p.vy||0) * 0.03;
-      ctx.save();
-      ctx.globalAlpha = 0.55;
-      ctx.strokeStyle = "rgba(251,113,133,0.8)";
-      ctx.lineWidth = 3.5;
-      ctx.beginPath();
-      ctx.moveTo(tx,ty);
-      ctx.lineTo(p.x,p.y);
-      ctx.stroke();
-      ctx.restore();
-    }
     // turret shots: small bolt; enemy shots: sharp diamond
     if (p.kind === "turret") {
       withTransform(p.x, p.y, ang, () => {
@@ -5773,6 +5506,22 @@ function drawEnemy(e){
 
   function drawFx(f){
     const t = clamp(f.t / f.dur, 0, 1);
+
+    if (f.kind === "flash") {
+      const k = 1 - t;
+      const r = lerp(0, f.r || 520, t);
+      ctx.save();
+      ctx.globalAlpha = 0.70 * k;
+      ctx.globalCompositeOperation = "lighter";
+      const g = ctx.createRadialGradient(f.x, f.y, 0, f.x, f.y, r);
+      g.addColorStop(0.00, "rgba(255,255,255,1)");
+      g.addColorStop(0.35, (f.color || "rgba(253,186,116,1)").replace('1)', '0.85)'));
+      g.addColorStop(1.00, "rgba(253,186,116,0)");
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, W, H);
+      ctx.restore();
+      return;
+    }
 
     if (f.kind === "ring") {
       const r = lerp(f.r0, f.r1, t);
@@ -6541,4 +6290,5 @@ if (mbFinalRow) {
   }
 
 })();
+
 
