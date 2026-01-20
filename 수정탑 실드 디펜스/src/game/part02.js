@@ -518,7 +518,7 @@ function renderUpgrades(){
       const enough = (state.crystals >= cost);
       const canBuy = canBuyOf(def);
 
-      const rowClass = canBuy ? "upgRow" : "upgRow disabled";
+      const rowClass = canBuy ? "upgRow canBuy" : "upgRow disabled";
       const btnLabel = (lv >= max) ? "MAX" : `${cost}`;
       const btnDisabled = (lv >= max) || (!enough) || (state.phase === "fail") || (state.phase === "win");
       const btnClass = btnDisabled ? "miniBtn isDisabled" : "miniBtn";
