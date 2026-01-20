@@ -234,7 +234,11 @@ if (btnFinalDefense) btnFinalDefense.addEventListener("click", ()=>selectFinalCh
 // - pointerdown에서 "즉시 구매" 처리(마우스 업 전에 DOM이 바뀌어도 확실히 반영)
 // - 클릭 이벤트는 백업용
 if (upgContainers.length) {
+  let lastUpgHandledAt = 0;
   const handleUpg = (ev) => {
+    const now = performance.now();
+    if (ev.type === "click" && (now - lastUpgHandledAt) < 350) return;
+    lastUpgHandledAt = now;
     const row = ev.target.closest("[data-upg]");
     if (!row) return;
 
@@ -270,7 +274,10 @@ if (upgContainers.length) {
     refreshUI();
   };
 
-  for (const el of upgContainers) el.addEventListener("pointerdown", handleUpg, { capture:true });
+  for (const el of upgContainers) {
+    el.addEventListener("pointerdown", handleUpg, { capture:true });
+    el.addEventListener("click", handleUpg, { capture:true });
+  }
   }
 
   const btnWave = document.getElementById("btnWave");

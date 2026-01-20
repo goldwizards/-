@@ -176,6 +176,15 @@ canvas {
     .crystalHud .crystalValue{ font-size:18px; font-weight:1000; color:#eaf4ff; font-variant-numeric: tabular-nums; }
 .upgRow{ padding:8px 8px 10px; border:1px solid rgba(255,255,255,0.08); border-radius:12px; background:rgba(0,0,0,0.18); margin:8px 0; cursor:pointer; }
     .upgRow:hover{ background:rgba(255,255,255,0.06); }
+    .upgRow.canBuy{
+      border-color: rgba(125,211,252,0.42);
+      box-shadow: 0 0 0 1px rgba(56,189,248,0.15) inset, 0 0 18px rgba(56,189,248,0.10);
+    }
+    .upgRow.canBuy .miniBtn{
+      border-color: rgba(125,211,252,0.45);
+      background: rgba(56,189,248,0.12);
+      color: #eaf6ff;
+    }
     .upgRow.disabled{ opacity:0.55; cursor:not-allowed; }
     .upgRow.disabled:hover{ background:rgba(0,0,0,0.18); }
 
@@ -213,6 +222,10 @@ canvas {
   color:#e6edf3;
   font-weight:800;
   outline:none;
+}
+.upgSearch:focus{
+  border-color: rgba(125,211,252,0.6);
+  box-shadow: 0 0 0 2px rgba(56,189,248,0.18);
 }
 .upgSearch::placeholder{ color: rgba(215,227,255,0.55); font-weight:800; }
 .upgCtlBtn{
