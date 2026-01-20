@@ -955,7 +955,7 @@ final: null,       // 최종 보스 패턴 상태
 
     core: {
       hpMax: 420, hp: 420,
-      shieldMax: 240, shield: 240,
+      shieldMax: 300, shield: 300,
       shieldRegen: 7,
       hpArmor: 2,
       shieldArmor: 2,
@@ -1501,7 +1501,8 @@ const uiFinalSupportDesc = document.getElementById("uiFinalSupportDesc");
         "보호막이 흡수한 피해로 ‘공명 게이지’가 차오릅니다.",
         "게이지에 따라 포탑 피해/공속이 증가합니다. (최대 피해 +30%, 공속 +18%)",
         "게이지 100%가 되면 최근 흡수량 기반의 ‘공명 방출’이 자동 발동합니다.",
-        "HP 직접 피해/실드 파괴 시 게이지가 크게 감소합니다."
+        "방출 시 주변 확산 피해 + ‘노출’(받는 피해↑) 디버프가 걸립니다.",
+        "HP 직격/실드 파괴 시 일정 시간 게이지 충전 효율이 감소합니다."
       ]
     },
     overload: {
@@ -6089,10 +6090,28 @@ function refreshUI(){
         const dMul = Math.round(30*g);
         const fMul = Math.round(18*g);
         passiveBadge = `<span class="badge ${d.colorClass}">패시브: ${d.name} (게이지 ${pct}% | 피해 +${dMul}% 공속 +${fMul}%)<\/span> `;
+      
       } else if (state.core.passiveId === "overload") {
+        const tNow = gameSec();
         const hpFrac = state.core.hpMax>0 ? (state.core.hp/state.core.hpMax) : 1;
         const tO = clamp((0.40 - hpFrac) / 0.30, 0, 1);
-        passiveBadge = `<span class="badge ${d.colorClass}">패시브: ${d.name} (과부하 ${(tO*100)|0}%)<\/span> `;
+
+        // 버스트/쇼크 상태
+        overloadEnsure();
+        const burstOn = (tNow < (state.core.overloadBurstUntil||0));
+        const burstLeft = Math.max(0, (state.core.overloadBurstUntil||0) - tNow);
+        const cdLeft = Math.max(0, (state.core.overloadBurstReadyAt||0) - tNow);
+        const burstInfo = burstOn ? `버스트 ${burstLeft.toFixed(1)}s` : (cdLeft>0.05 ? `쿨 ${cdLeft.toFixed(1)}s` : `READY`);
+
+        // 현재 필드 표식 최대 중첩(만료된 표식 제외)
+        let maxSt = 0;
+        for (const e of state.enemies) {
+          if (!e) continue;
+          if (tNow < (e.ovMarkUntil||0)) maxSt = Math.max(maxSt, (e.ovMarkStacks||0));
+        }
+        const markInfo = `표식 ${maxSt}/${OVERLOAD_CFG.markMax}`;
+
+        passiveBadge = `<span class="badge ${d.colorClass}">패시브: ${d.name} (과부하 ${(tO*100)|0}% | ${burstInfo} | ${markInfo})<\/span> `;
       } else if (state.core.passiveId === "overdrive") {
         const hpFrac = state.core.hpMax>0 ? (state.core.hp/state.core.hpMax) : 1;
         const tO = clamp((0.40 - hpFrac) / 0.30, 0, 1);

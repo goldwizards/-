@@ -1,56 +1,4 @@
-// AUTO-SPLIT PART 03/8 (lines 1541-2310)
-  }
-
-  function resonanceReset(){
-    const c = state.core;
-    c.resGauge = 0;
-    c.resLastAbsorbAt = -999;
-    c.resChargeSecStartAt = gameSec();
-    c.resChargeThisSec = 0;
-    c.resDischargeReadyAt = 0;
-    c.resAbsorbEvents = [];
-    c.resChargePenaltyHpUntil = 0;
-    c.resChargePenaltyBreakUntil = 0;
-  }
-
-  function resonanceGauge01(){
-    resonanceEnsure();
-    return clamp((state.core.resGauge||0)/100, 0, 1);
-  }
-
-  function resonancePrune(){
-    const c = state.core;
-    if (!Array.isArray(c.resAbsorbEvents) || c.resAbsorbEvents.length === 0) return;
-    const t = gameSec();
-    // 3.2초 이상 지난 기록 제거(여유)
-    let cut = 0;
-    while (cut < c.resAbsorbEvents.length && (t - c.resAbsorbEvents[cut].t) > 3.2) cut++;
-    if (cut > 0) c.resAbsorbEvents.splice(0, cut);
-  }
-
-  function resonanceRecentAbsSum(){
-    const c = state.core;
-    if (!Array.isArray(c.resAbsorbEvents) || c.resAbsorbEvents.length === 0) return 0;
-    const t = gameSec();
-    let sum = 0;
-    for (let i = c.resAbsorbEvents.length - 1; i >= 0; i--) {
-      const a = c.resAbsorbEvents[i];
-      if ((t - a.t) > 3.0) break;
-      sum += (a.v||0);
-    }
-    return sum;
-  }
-
-  function resonanceOnAbsorb(absAmt){
-    if (state.core.passiveId !== 'resonance') return;
-    resonanceEnsure();
-    const c = state.core;
-    const t = gameSec();
-    c.resAbsorbEvents.push({ t, v: absAmt });
-    c.resLastAbsorbAt = t;
-
-    // 1회/초 상한 포함 충전
-    if ((t - c.resChargeSecStartAt) >= 1.0) { c.resChargeSecStartAt = t; c.resChargeThisSec = 0; }
+// AUTO-SPLIT PART 03
     const denom = Math.max(1, c.shieldMax * RESONANCE_CFG.denomMul);
     let add = (absAmt / denom) * 100;
 
@@ -100,7 +48,6 @@
     }
     return best;
   }
-
   function resonanceDischarge(){
     const c = state.core;
     const t = gameSec();
@@ -109,23 +56,58 @@
 
     resonancePrune();
     const recent = resonanceRecentAbsSum();
+
+    // 메인 데미지(최근 3초 흡수량 기반)
     let dmg = recent * RESONANCE_CFG.dischargeMul;
     const cap = c.shieldMax * RESONANCE_CFG.dischargeCapMul;
     dmg = Math.min(dmg, cap);
-    // 최종보스는 공명 방출을 너무 죽이지 않도록 완만하게만 보정
-    if (target.isFinalBoss) dmg *= 0.85;
 
-    // 타격
-    target.hp -= dmg;
+    // 최종보스 내성 로직만 적용(추가 감쇄 없음)
+    if (target.isFinalBoss) dmg *= finalBossIncomingMul();
 
-    // 연출
-    fxLine(CORE_POS.x, CORE_POS.y, target.x, target.y, '#fdba74', 0.55, 6);
-    fxRing(CORE_POS.x, CORE_POS.y, CORE_RADIUS+10, CORE_RADIUS+150, '#fdba74');
-    fxRing(target.x, target.y, 10, 92, '#fdba74');
-    fxText('공명 방출!', CORE_POS.x, CORE_POS.y - 128, '#fdba74');
+    const mainDmg = dmg;
+
+    // 메인 타격 + 노출
+    target.hp -= mainDmg;
+    applyResExpose(target, 3.2);
+
+    // 주변 확산 피해(190px)
+    const R = 190;
+    for (const e of state.enemies) {
+      if (!e || e.hp <= 0 || e === target) continue;
+      const d = dist(e.x, e.y, target.x, target.y);
+      if (d > R) continue;
+      const k = clamp(d / R, 0, 1);
+      const fall = lerp(1.0, 0.35, k); // edge => 0.35
+      let sdmg = mainDmg * 0.35 * fall; // center 0.35, edge 0.1225
+      if (e.isFinalBoss) sdmg *= finalBossIncomingMul();
+      e.hp -= sdmg;
+      applyResExpose(e, 3.2);
+    }
+
+    // 연출: 다중 빔(2겹) + 링 2중 + 화면 플래시 + 카메라 흔들림
+    fxLine(CORE_POS.x, CORE_POS.y, target.x, target.y, '#fb923c', 0.55, 10);
+    fxLine(CORE_POS.x, CORE_POS.y, target.x, target.y, '#fdba74', 0.55, 3);
+    fxRing(CORE_POS.x, CORE_POS.y, CORE_RADIUS+12, CORE_RADIUS+170, '#fdba74');
+    fxRing(target.x, target.y, 10, 120, '#fdba74');
+    fxRing(target.x, target.y, 16, 160, '#fb923c');
+
+    fxText(`공명 방출! -${Math.round(mainDmg)}`, CORE_POS.x, CORE_POS.y - 128, '#fdba74');
+
+    state.resFlashX = target.x;
+    state.resFlashY = target.y;
+    state.resFlashDur = 0.16;
+    state.resFlashUntil = t + state.resFlashDur;
+
+    state.camShakeMag = 10;
+    state.camShakeDur = 0.11;
+    state.camShakeUntil = t + state.camShakeDur;
+
+    try { SFX.play('blast'); } catch {}
     try { sfxShieldHit(); } catch {}
 
-    c.resGauge = 0;
+    // 끊김 완화: 0이 아니라 25% 남김
+    c.resGauge = 25;
     c.resDischargeReadyAt = t + RESONANCE_CFG.dischargeCd;
   }
 
@@ -219,6 +201,13 @@ function passiveSelected(){ return !!state.core.passiveId; }
     resonanceReset();
     state.core.rebuildEmergencyUntil = 0;
     state.core.rebuildEmergencyReadyAt = 0;
+
+    // 임계 과부하 누적 상태 리셋
+    state.core.overloadBurstUntil = 0;
+    state.core.overloadBurstReadyAt = 0;
+    state.core.overloadWasAbove30 = true;
+    state.core.overloadExtendReadyAt = 0;
+    state.core.overloadKickReadyAt = 0;
 
     setMsg(`패시브 선택: ${CORE_PASSIVES[id].name}`, 2.0);
     refreshCorePassiveUI();
@@ -786,3 +775,48 @@ const cheatModal = document.getElementById("cheatModal");
   }
 
   // ---------- Wave Spec ----------
+  function waveSpec(w){
+  const isBoss = (w % 5 === 0) || (w === FINAL_WAVE);
+  const isFinal = (w === FINAL_WAVE);
+
+  // 최종 웨이브(30): 보스 1마리만 기본 스폰. (추가 소환은 보스 패턴에서 처리)
+  const baseCount = Math.floor(10 + w*2.2);
+  const count = isFinal ? 1 : (isBoss ? Math.max(8, Math.floor(baseCount*0.65)) : baseCount);
+
+  const hp  = (26 + w*6) * (isFinal ? 4.2 : (isBoss ? 2.25 : 1.0));
+  const spd = (42 + w*2.3) * (isFinal ? 0.95 : (isBoss ? 0.92 : 1.0));
+  const spawnRate = (isFinal ? 0.9 : (isBoss ? 0.9 : 1.25)) + w*0.03;
+  return { count, hp, spd, spawnRate, isBoss, isFinal };
+}
+
+
+  // ---------- Enemy types ----------
+  const ENEMY_ARCH = {
+    grunt: { name:"돌격병",  hpMul:1.00, spdMul:1.00, r:12, reward:10, touchDmg:9,  touchCd:0.70, color:"#fb7185" },
+    shooter:{ name:"사수",    hpMul:0.90, spdMul:0.92, r:11, reward:12, touchDmg:7,  touchCd:0.85,
+              ranged:true, shootRange:260, holdDist:230, shotCd:1.15, projDmg:8, projSpd:320,
+              coreOpts:{ hpArmorPierce:0.20 }, color:"#fbbf24" },
+    shieldbreaker:{ name:"실드 브레이커", hpMul:1.05, spdMul:1.02, r:12, reward:13, touchDmg:8, touchCd:0.72,
+              coreOpts:{ shieldBonusMul:1.55 }, color:"#60a5fa" },
+    piercer:{ name:"관통병",  hpMul:0.95, spdMul:1.12, r:12, reward:13, touchDmg:10, touchCd:0.72,
+              coreOpts:{ hpArmorPierce:0.65 }, color:"#a78bfa" },
+    bomber:{ name:"폭파병",   hpMul:0.82, spdMul:1.25, r:12, reward:14, touchDmg:0, touchCd:0,
+              bomber:true, explodeDmg:32, explodeRad:120, turretBreakChance:0.35,
+              coreOpts:{ shieldBonusMul:1.20 }, color:"#34d399" },
+
+    boss: { name:"정예 코어브레이커", hpMul:6.5, spdMul:0.85, r:22, reward:80, touchDmg:20, touchCd:0.55,
+            ranged:true, shootRange:320, holdDist:260, shotCd:0.95, projDmg:14, projSpd:360,
+            coreOpts:{ hpArmorPierce:0.35, shieldBonusMul:1.15 }, color:"#f472b6" },
+  };
+
+  function pickEnemyId(w, spec, idx){
+    // boss wave: 첫 스폰은 보스 1마리
+    if (spec.isBoss && idx === 0) return "boss";
+
+    const pool = [];
+    pool.push(["grunt",  60]);
+
+    if (w >= 2) pool.push(["shooter", 18]);
+    if (w >= 3) pool.push(["shieldbreaker", 16]);
+    if (w >= 4) pool.push(["piercer", 16]);
+    if (w >= 6) pool.push(["bomber", 14]);

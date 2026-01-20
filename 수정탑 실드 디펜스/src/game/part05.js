@@ -1,4 +1,47 @@
-// AUTO-SPLIT PART 05/8 (lines 3081-3850)
+// AUTO-SPLIT PART 05
+    });
+
+    fxRing(t.x,t.y, 6, 26, "#a7f3d0");
+
+    sfxShoot();
+  }
+
+  
+  function enemyShoot(e){
+    const dx = CORE_POS.x - e.x, dy = CORE_POS.y - e.y;
+    const d = Math.hypot(dx,dy) || 1;
+    const sp = e.projSpd || 320;
+
+    if (state.projectiles.length >= projCap()) return;
+
+    const isOvBurst = (state.core.passiveId === "overload") && overloadBurstActive();
+
+    state.projectiles.push({
+      kind: "enemy",
+      x: e.x, y: e.y,
+      vx: dx/d * sp,
+      vy: dy/d * sp,
+      dmg: (e.projDmg || 8) * (e.elite ? 1.10 : 1.0) * state.difficulty,
+      life: 2.2,
+      r: 3,
+      coreOpts: e.coreOpts || null
+    });
+
+    SFX.play("enemy_shoot");
+    fxRing(e.x, e.y, 6, 26, "#fbbf24");
+  }
+
+  function bombExplode(e){
+    SFX.play("blast");
+    fxRing(e.x, e.y, 16, e.explodeRad || 120, "#34d399");
+    fxText("폭발!", e.x, e.y - 16, "#34d399");
+
+    const dmg = (e.explodeDmg || 32) * (e.elite ? 1.10 : 1.0) * state.difficulty;
+    damageCore(dmg, e.coreOpts || null);
+
+    // 폭발 반경 내 포탑 파손(확률)
+    const rad = e.explodeRad || 120;
+    const chance = e.turretBreakChance || 0.35;
     for (let j = state.turrets.length - 1; j >= 0; j--) {
       const t = state.turrets[j];
       if (dist(t.x,t.y, e.x,e.y) <= rad) {
@@ -12,8 +55,29 @@
   }
 
 function applyProjectileHit(p, hit){
+    // 임계 과부하: 포탑 적중 시 표식(최대 5중첩/4s)
+    if (p.kind === "turret" && state.core.passiveId === "overload") {
+      applyOverloadMark(hit, 1);
+    }
     let dmg = p.dmg;
-    if (p.kind === "turret" && hit.isFinalBoss) dmg *= finalBossIncomingMul();
+    dmg *= enemyExposeMul(hit);
+    // 과부하 표식: 받는 피해 증가
+    if (state.core.passiveId === "overload") dmg *= (1 + overloadMarkBonus(hit));
+    // 최종보스: 포탑 내성 (버스트 중 25% 부분 무시)
+    if (p.kind === "turret" && hit.isFinalBoss) {
+      let mul = finalBossIncomingMul();
+      if (state.core.passiveId === "overload" && p.ovBurst) {
+        mul = mul + (1 - mul) * OVERLOAD_CFG.finalBossResistIgnore;
+      }
+      dmg *= mul;
+    }
+
+    const tNow = nowSec();
+    if (tNow < (hit.resExposeUntil||0)) {
+      const m = (hit.kind === "boss") ? RESONANCE_CFG.dischargeExposeMulBoss : RESONANCE_CFG.dischargeExposeMul;
+      dmg *= m;
+    }
+
     hit.hp -= dmg;
 
     // 체인(공명/과부하): 추가로 가까운 적 1명에게 전이
@@ -29,7 +93,13 @@ function applyProjectileHit(p, hit){
         if (best) {
           const mul = clamp(p.chainMul||0.5, 0.1, 0.9);
           let cdmg = p.dmg * mul;
-          if (best.isFinalBoss) cdmg *= finalBossIncomingMul();
+          cdmg *= enemyExposeMul(best);
+          if (state.core.passiveId === "overload") cdmg *= (1 + overloadMarkBonus(best));
+          if (best.isFinalBoss) {
+            let mulB = finalBossIncomingMul();
+            if (state.core.passiveId === "overload" && p.ovBurst) mulB = mulB + (1 - mulB) * OVERLOAD_CFG.finalBossResistIgnore;
+            cdmg *= mulB;
+          }
           best.hp -= cdmg;
           fxRing(best.x, best.y, 6, 30, "#fdba74");
           fxRing(hit.x, hit.y, 6, 30, "#fdba74");
@@ -62,13 +132,44 @@ function applyProjectileHit(p, hit){
           const coreLow = (state.core.hp / state.core.hpMax) <= 0.5;
           const splashMul = coreLow ? 0.50 : 0.65;
           let sdmg = p.dmg * splashMul * fall;
-          if (e.isFinalBoss) sdmg *= finalBossIncomingMul();
+          sdmg *= enemyExposeMul(e);
+          if (state.core.passiveId === "overload") sdmg *= (1 + overloadMarkBonus(e));
+          if (e.isFinalBoss) {
+            let mulF = finalBossIncomingMul();
+            if (state.core.passiveId === "overload" && p.ovBurst) mulF = mulF + (1 - mulF) * OVERLOAD_CFG.finalBossResistIgnore;
+            sdmg *= mulF;
+          }
           e.hp -= sdmg;
         }
       }
       fxRing(p.x,p.y, 8, p.splash, "#93c5fd");
     } else {
       fxRing(p.x,p.y, 6, 36, "#93c5fd");
+    }
+
+    // 임계 과부하: 버스트 중(스플래시 없는 포탑) 소형 폭발 90px / 35% 피해
+    if (p.ovMiniSplash) {
+      const R2 = OVERLOAD_CFG.miniSplashR;
+      for (const e2 of state.enemies) {
+        if (!e2 || e2===hit) continue;
+        if (p.hitSet && p.hitSet.has(e2)) continue;
+        const d2 = dist(p.x,p.y, e2.x,e2.y);
+        if (d2 > R2) continue;
+        let mdmg = p.dmg * OVERLOAD_CFG.miniSplashMul;
+        mdmg *= enemyExposeMul(e2);
+        if (state.core.passiveId === "overload") mdmg *= (1 + overloadMarkBonus(e2));
+        if (e2.isFinalBoss) {
+          let mulX = finalBossIncomingMul();
+          if (state.core.passiveId === "overload" && p.ovBurst) mulX = mulX + (1 - mulX) * OVERLOAD_CFG.finalBossResistIgnore;
+          mdmg *= mulX;
+        }
+        if (tNow < (e2.resExposeUntil||0)) {
+          const m4 = (e2.kind === "boss") ? RESONANCE_CFG.dischargeExposeMulBoss : RESONANCE_CFG.dischargeExposeMul;
+          mdmg *= m4;
+        }
+        e2.hp -= mdmg;
+      }
+      fxRing(p.x,p.y, 10, R2, "#fb7185");
     }
   }
 
@@ -534,6 +635,36 @@ function fxLine(x1,y1,x2,y2, color, dur=0.9, width=4){
   state.crystals += Math.floor(10 + state.wave*2);
 }
 
+  function drawResonanceScreenFlash(){
+    const tt = gameSec();
+    const until = state.resFlashUntil || 0;
+    const rem = Math.max(0, until - tt);
+    if (rem <= 0) return;
+    const dur = state.resFlashDur || 0.16;
+    const k = clamp(rem / dur, 0, 1);
+    const a = 0.32 * k;
+    const x = (typeof state.resFlashX === 'number') ? state.resFlashX : CORE_POS.x;
+    const y = (typeof state.resFlashY === 'number') ? state.resFlashY : CORE_POS.y;
+
+    ctx.save();
+    ctx.globalAlpha = a;
+    ctx.globalCompositeOperation = 'lighter';
+    const r = lerp(180, 520, 1-k);
+    const g = ctx.createRadialGradient(x, y, 0, x, y, r);
+    g.addColorStop(0.0, 'rgba(255,237,213,1)');
+    g.addColorStop(0.35, 'rgba(253,186,116,0.85)');
+    g.addColorStop(1.0, 'rgba(253,186,116,0)');
+    ctx.fillStyle = g;
+    ctx.fillRect(0,0,W,H);
+
+    // very light full-screen blink
+    ctx.globalAlpha = a * 0.22;
+    ctx.fillStyle = 'rgba(253,186,116,1)';
+    ctx.fillRect(0,0,W,H);
+    ctx.restore();
+  }
+
+
 
   function clearWave(){
   if (state.phase === "fail") return;
@@ -688,84 +819,3 @@ function ringRadius(r){
 function drawWinOverlay(){
   if (!state.win) return;
   const w = state.win;
-
-  // vignette
-  ctx.save();
-  ctx.globalAlpha = 0.28 + 0.22*Math.sin(w.t*2.1);
-  const g = ctx.createRadialGradient(CORE_POS.x, CORE_POS.y, 60, CORE_POS.x, CORE_POS.y, 360);
-  g.addColorStop(0, "rgba(96,165,250,0.0)");
-  g.addColorStop(1, "rgba(96,165,250,0.85)");
-  ctx.fillStyle = g;
-  ctx.fillRect(0,0,W,H);
-  ctx.restore();
-
-  // beam
-  if (w.stage >= 1) {
-    const a = 0.25 + 0.55*w.beam;
-    ctx.save();
-    ctx.globalAlpha = a;
-    const beamW = 34 + 40*w.beam;
-    const bx = CORE_POS.x - beamW/2;
-    const by = 0;
-    const bh = CORE_POS.y;
-    const bg = ctx.createLinearGradient(0, by, 0, bh);
-    bg.addColorStop(0, "rgba(96,165,250,0.0)");
-    bg.addColorStop(0.55, "rgba(96,165,250,0.65)");
-    bg.addColorStop(1, "rgba(96,165,250,0.95)");
-    ctx.fillStyle = bg;
-    ctx.fillRect(bx, by, beamW, bh);
-    // core glow
-    ctx.globalAlpha = a*0.8;
-    ctx.beginPath();
-    ctx.arc(CORE_POS.x, CORE_POS.y, CORE_RADIUS+26, 0, Math.PI*2);
-    ctx.fillStyle = "rgba(96,165,250,0.22)";
-    ctx.fill();
-    ctx.restore();
-  }
-
-  // cleanse rings
-  if (w.stage >= 2) {
-    ctx.save();
-    for (const rr of w.rings) {
-      const rad = ringRadius(rr);
-      const t = Math.max(0, rr.t - rr.delay);
-      const alpha = clamp(0.55 - t*0.18, 0, 0.55);
-      if (alpha <= 0) continue;
-      ctx.globalAlpha = alpha;
-      ctx.strokeStyle = "#60a5fa";
-      ctx.lineWidth = 6;
-      ctx.beginPath();
-      ctx.arc(CORE_POS.x, CORE_POS.y, rad, 0, Math.PI*2);
-      ctx.stroke();
-    }
-    ctx.restore();
-  }
-
-  // flash (impact)
-  if (w.flash > 0.01) {
-    ctx.save();
-    ctx.globalAlpha = w.flash*0.35;
-    ctx.fillStyle = "#93c5fd";
-    ctx.fillRect(0,0,W,H);
-    ctx.restore();
-  }
-
-  // end screen text
-  if (w.stage >= 3) {
-    ctx.save();
-    ctx.globalAlpha = 0.92;
-    ctx.fillStyle = "rgba(15,23,42,0.72)";
-    ctx.fillRect(0,0,W,H);
-
-    ctx.fillStyle = "#e5e7eb";
-    ctx.font = "700 44px system-ui, sans-serif";
-    ctx.textAlign = "center";
-    ctx.fillText("정화 완료", W/2, 150);
-
-    ctx.font = "500 16px system-ui, sans-serif";
-    ctx.fillStyle = "#cbd5e1";
-    ctx.fillText("침식 주파수가 뒤집혔습니다. 지역은 안전해졌습니다.", W/2, 182);
-
-    const tPlay = Math.max(0, (state.stats.runEnd || nowSec()) - (state.stats.runStart || nowSec()));
-    const lines = [
-      `도달 웨이브: ${FINAL_WAVE}`,

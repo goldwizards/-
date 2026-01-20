@@ -1,4 +1,85 @@
-// AUTO-SPLIT PART 06/8 (lines 3851-4620)
+// AUTO-SPLIT PART 06
+
+  // vignette
+  ctx.save();
+  ctx.globalAlpha = 0.28 + 0.22*Math.sin(w.t*2.1);
+  const g = ctx.createRadialGradient(CORE_POS.x, CORE_POS.y, 60, CORE_POS.x, CORE_POS.y, 360);
+  g.addColorStop(0, "rgba(96,165,250,0.0)");
+  g.addColorStop(1, "rgba(96,165,250,0.85)");
+  ctx.fillStyle = g;
+  ctx.fillRect(0,0,W,H);
+  ctx.restore();
+
+  // beam
+  if (w.stage >= 1) {
+    const a = 0.25 + 0.55*w.beam;
+    ctx.save();
+    ctx.globalAlpha = a;
+    const beamW = 34 + 40*w.beam;
+    const bx = CORE_POS.x - beamW/2;
+    const by = 0;
+    const bh = CORE_POS.y;
+    const bg = ctx.createLinearGradient(0, by, 0, bh);
+    bg.addColorStop(0, "rgba(96,165,250,0.0)");
+    bg.addColorStop(0.55, "rgba(96,165,250,0.65)");
+    bg.addColorStop(1, "rgba(96,165,250,0.95)");
+    ctx.fillStyle = bg;
+    ctx.fillRect(bx, by, beamW, bh);
+    // core glow
+    ctx.globalAlpha = a*0.8;
+    ctx.beginPath();
+    ctx.arc(CORE_POS.x, CORE_POS.y, CORE_RADIUS+26, 0, Math.PI*2);
+    ctx.fillStyle = "rgba(96,165,250,0.22)";
+    ctx.fill();
+    ctx.restore();
+  }
+
+  // cleanse rings
+  if (w.stage >= 2) {
+    ctx.save();
+    for (const rr of w.rings) {
+      const rad = ringRadius(rr);
+      const t = Math.max(0, rr.t - rr.delay);
+      const alpha = clamp(0.55 - t*0.18, 0, 0.55);
+      if (alpha <= 0) continue;
+      ctx.globalAlpha = alpha;
+      ctx.strokeStyle = "#60a5fa";
+      ctx.lineWidth = 6;
+      ctx.beginPath();
+      ctx.arc(CORE_POS.x, CORE_POS.y, rad, 0, Math.PI*2);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  // flash (impact)
+  if (w.flash > 0.01) {
+    ctx.save();
+    ctx.globalAlpha = w.flash*0.35;
+    ctx.fillStyle = "#93c5fd";
+    ctx.fillRect(0,0,W,H);
+    ctx.restore();
+  }
+
+  // end screen text
+  if (w.stage >= 3) {
+    ctx.save();
+    ctx.globalAlpha = 0.92;
+    ctx.fillStyle = "rgba(15,23,42,0.72)";
+    ctx.fillRect(0,0,W,H);
+
+    ctx.fillStyle = "#e5e7eb";
+    ctx.font = "700 44px system-ui, sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillText("정화 완료", W/2, 150);
+
+    ctx.font = "500 16px system-ui, sans-serif";
+    ctx.fillStyle = "#cbd5e1";
+    ctx.fillText("침식 주파수가 뒤집혔습니다. 지역은 안전해졌습니다.", W/2, 182);
+
+    const tPlay = Math.max(0, (state.stats.runEnd || nowSec()) - (state.stats.runStart || nowSec()));
+    const lines = [
+      `도달 웨이브: ${FINAL_WAVE}`,
       `총 처치: ${state.stats.kills|0}`,
       `받은 피해: ${Math.round(state.stats.damageTaken)|0}`,
       `수리 횟수: ${state.stats.repairs|0}`,
@@ -103,6 +184,13 @@ function restart(){
     resonanceReset();
     state.core.rebuildEmergencyUntil = 0;
     state.core.rebuildEmergencyReadyAt = 0;
+
+    // 임계 과부하 누적 상태 리셋
+    state.core.overloadBurstUntil = 0;
+    state.core.overloadBurstReadyAt = 0;
+    state.core.overloadWasAbove30 = true;
+    state.core.overloadExtendReadyAt = 0;
+    state.core.overloadKickReadyAt = 0;
     refreshCorePassiveUI();
 
     // BGM: 기본(build) 모드로
@@ -283,6 +371,9 @@ if (gameSec() >= state.core.shieldRegenBlockedUntil) {
 
     // 공명 반격: 게이지 감쇠/방출 처리
     updateResonance(dt);
+
+    // 임계 과부하: HP 30%↓ 진입 트리거/버스트 관리
+    updateOverload(dt);
 
     
     // auto-start next wave (clear phase)
@@ -633,6 +724,7 @@ if (state.phase === "wave" && state.wave === FINAL_WAVE) {
 
     // explosion flash on top
     drawBlueExplosionFlash();
+    drawResonanceScreenFlash();
 
     if (state.phase !== "win") drawTopHUD();
     if (state.phase !== "win") drawBossHUD();
@@ -727,45 +819,3 @@ if (state.phase === "wave" && state.wave === FINAL_WAVE) {
       ctx.fillStyle = g;
       ctx.beginPath();
       ctx.arc(CORE_POS.x, CORE_POS.y, 82, 0, Math.PI*2);
-      ctx.fill();
-
-      ctx.restore();
-    }
-
-
-
-    // 에너지포 충전: 수정탑 집속 연출(빛을 모아 가장 밝아질 때 발사)
-    if (alpha > 0.01 && state.core.energyCharging) {
-      const tt = gameSec();
-      const dur = state.core.energyChargeDur || 3.0;
-      const rem = state.core.energyChargeUntil - tt;
-      const c = clamp(1 - (rem / dur), 0, 1);
-      const pulse = 0.5 + 0.5*Math.sin(tt*7.2 + c*2.2);
-
-      ctx.save();
-      ctx.globalCompositeOperation = "lighter";
-
-      // 강한 글로우(수정탑 자체가 빛나게)
-      ctx.globalAlpha = alpha * (0.10 + 0.36*c);
-      const gg = ctx.createRadialGradient(CORE_POS.x, CORE_POS.y, 8, CORE_POS.x, CORE_POS.y, 110 + 40*c);
-      gg.addColorStop(0, "rgba(203,230,255,0.85)");
-      gg.addColorStop(0.35, "rgba(96,165,250,0.55)");
-      gg.addColorStop(1, "rgba(96,165,250,0)");
-      ctx.fillStyle = gg;
-      ctx.beginPath();
-      ctx.arc(CORE_POS.x, CORE_POS.y, 120 + 30*c, 0, Math.PI*2);
-      ctx.fill();
-
-      // 외곽 링(회전 아크)
-      ctx.globalAlpha = alpha * (0.12 + 0.26*c);
-      ctx.strokeStyle = "rgba(147,197,253,0.95)";
-      ctx.lineWidth = 4.2;
-      const baseR = 88 + 8*pulse;
-      const rot = tt*2.4 + c*1.1;
-      for (let k=0;k<3;k++){
-        const a0 = rot + k*(Math.PI*2/3);
-        ctx.beginPath();
-        ctx.arc(CORE_POS.x, CORE_POS.y, baseR, a0, a0 + 0.95 + 0.25*pulse);
-        ctx.stroke();
-      }
-

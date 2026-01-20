@@ -1,4 +1,37 @@
-// AUTO-SPLIT PART 08/8 (lines 5391-6159)
+// AUTO-SPLIT PART 08
+
+        if (p.crit) {
+          ctx.globalAlpha = 0.55;
+          ctx.strokeStyle = "#ffffff";
+          ctx.lineWidth = 2;
+          roundRectPath(-p.r*1.35, -p.r*0.65, p.r*2.95, p.r*1.30, p.r*0.65);
+          ctx.stroke();
+        }
+
+        ctx.globalAlpha = 0.35;
+        ctx.fillStyle = "#ffffff";
+        roundRectPath(-p.r*1.0, -p.r*0.30, p.r*1.2, p.r*0.60, p.r*0.30);
+        ctx.fill();
+        ctx.restore();
+      });
+    } else {
+      withTransform(p.x, p.y, ang, () => {
+        ctx.save();
+        ctx.fillStyle = col;
+        polyPath(4, p.r*1.25, Math.PI/4);
+        ctx.fill();
+        ctx.globalAlpha = 0.28;
+        ctx.strokeStyle = "#ffffff";
+        ctx.lineWidth = 1.5;
+        polyPath(4, p.r*1.25, Math.PI/4);
+        ctx.stroke();
+        ctx.restore();
+      });
+    }
+  }
+
+  function drawFx(f){
+    const t = clamp(f.t / f.dur, 0, 1);
 
     if (f.kind === "ring") {
       const r = lerp(f.r0, f.r1, t);
@@ -315,10 +348,28 @@ function refreshUI(){
         const dMul = Math.round(30*g);
         const fMul = Math.round(18*g);
         passiveBadge = `<span class="badge ${d.colorClass}">패시브: ${d.name} (게이지 ${pct}% | 피해 +${dMul}% 공속 +${fMul}%)<\/span> `;
+      
       } else if (state.core.passiveId === "overload") {
+        const tNow = gameSec();
         const hpFrac = state.core.hpMax>0 ? (state.core.hp/state.core.hpMax) : 1;
         const tO = clamp((0.40 - hpFrac) / 0.30, 0, 1);
-        passiveBadge = `<span class="badge ${d.colorClass}">패시브: ${d.name} (과부하 ${(tO*100)|0}%)<\/span> `;
+
+        // 버스트/쇼크 상태
+        overloadEnsure();
+        const burstOn = (tNow < (state.core.overloadBurstUntil||0));
+        const burstLeft = Math.max(0, (state.core.overloadBurstUntil||0) - tNow);
+        const cdLeft = Math.max(0, (state.core.overloadBurstReadyAt||0) - tNow);
+        const burstInfo = burstOn ? `버스트 ${burstLeft.toFixed(1)}s` : (cdLeft>0.05 ? `쿨 ${cdLeft.toFixed(1)}s` : `READY`);
+
+        // 현재 필드 표식 최대 중첩(만료된 표식 제외)
+        let maxSt = 0;
+        for (const e of state.enemies) {
+          if (!e) continue;
+          if (tNow < (e.ovMarkUntil||0)) maxSt = Math.max(maxSt, (e.ovMarkStacks||0));
+        }
+        const markInfo = `표식 ${maxSt}/${OVERLOAD_CFG.markMax}`;
+
+        passiveBadge = `<span class="badge ${d.colorClass}">패시브: ${d.name} (과부하 ${(tO*100)|0}% | ${burstInfo} | ${markInfo})<\/span> `;
       } else if (state.core.passiveId === "overdrive") {
         const hpFrac = state.core.hpMax>0 ? (state.core.hp/state.core.hpMax) : 1;
         const tO = clamp((0.40 - hpFrac) / 0.30, 0, 1);

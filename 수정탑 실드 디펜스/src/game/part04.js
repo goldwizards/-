@@ -1,49 +1,4 @@
-// AUTO-SPLIT PART 04/8 (lines 2311-3080)
-  function waveSpec(w){
-  const isBoss = (w % 5 === 0) || (w === FINAL_WAVE);
-  const isFinal = (w === FINAL_WAVE);
-
-  // 최종 웨이브(30): 보스 1마리만 기본 스폰. (추가 소환은 보스 패턴에서 처리)
-  const baseCount = Math.floor(10 + w*2.2);
-  const count = isFinal ? 1 : (isBoss ? Math.max(8, Math.floor(baseCount*0.65)) : baseCount);
-
-  const hp  = (26 + w*6) * (isFinal ? 4.2 : (isBoss ? 2.25 : 1.0));
-  const spd = (42 + w*2.3) * (isFinal ? 0.95 : (isBoss ? 0.92 : 1.0));
-  const spawnRate = (isFinal ? 0.9 : (isBoss ? 0.9 : 1.25)) + w*0.03;
-  return { count, hp, spd, spawnRate, isBoss, isFinal };
-}
-
-
-  // ---------- Enemy types ----------
-  const ENEMY_ARCH = {
-    grunt: { name:"돌격병",  hpMul:1.00, spdMul:1.00, r:12, reward:10, touchDmg:9,  touchCd:0.70, color:"#fb7185" },
-    shooter:{ name:"사수",    hpMul:0.90, spdMul:0.92, r:11, reward:12, touchDmg:7,  touchCd:0.85,
-              ranged:true, shootRange:260, holdDist:230, shotCd:1.15, projDmg:8, projSpd:320,
-              coreOpts:{ hpArmorPierce:0.20 }, color:"#fbbf24" },
-    shieldbreaker:{ name:"실드 브레이커", hpMul:1.05, spdMul:1.02, r:12, reward:13, touchDmg:8, touchCd:0.72,
-              coreOpts:{ shieldBonusMul:1.55 }, color:"#60a5fa" },
-    piercer:{ name:"관통병",  hpMul:0.95, spdMul:1.12, r:12, reward:13, touchDmg:10, touchCd:0.72,
-              coreOpts:{ hpArmorPierce:0.65 }, color:"#a78bfa" },
-    bomber:{ name:"폭파병",   hpMul:0.82, spdMul:1.25, r:12, reward:14, touchDmg:0, touchCd:0,
-              bomber:true, explodeDmg:32, explodeRad:120, turretBreakChance:0.35,
-              coreOpts:{ shieldBonusMul:1.20 }, color:"#34d399" },
-
-    boss: { name:"정예 코어브레이커", hpMul:6.5, spdMul:0.85, r:22, reward:80, touchDmg:20, touchCd:0.55,
-            ranged:true, shootRange:320, holdDist:260, shotCd:0.95, projDmg:14, projSpd:360,
-            coreOpts:{ hpArmorPierce:0.35, shieldBonusMul:1.15 }, color:"#f472b6" },
-  };
-
-  function pickEnemyId(w, spec, idx){
-    // boss wave: 첫 스폰은 보스 1마리
-    if (spec.isBoss && idx === 0) return "boss";
-
-    const pool = [];
-    pool.push(["grunt",  60]);
-
-    if (w >= 2) pool.push(["shooter", 18]);
-    if (w >= 3) pool.push(["shieldbreaker", 16]);
-    if (w >= 4) pool.push(["piercer", 16]);
-    if (w >= 6) pool.push(["bomber", 14]);
+// AUTO-SPLIT PART 04
 
     // boss wave: 특수 몹 비중 증가
     if (spec.isBoss) {
@@ -84,6 +39,9 @@
     fxText("긴급 보호막!", CORE_POS.x, CORE_POS.y - 64, "#93c5fd");
     fxShieldWave(CORE_POS.x, CORE_POS.y, CORE_RADIUS + 18);
     fxRing(CORE_POS.x, CORE_POS.y, CORE_RADIUS+10, 120, "#60a5fa");
+
+    // 임계 과부하 연계: 다음 버스트/쇼크 쿨 -6s (20s ICD)
+    overloadOnAegis();
   }
 
   
@@ -91,6 +49,7 @@
     if (state.phase === "fail") return;
 
     const t = gameSec();
+    const hpFracBefore = (state.core.hpMax>0) ? (state.core.hp / state.core.hpMax) : 1;
     const cdLeft = Math.max(0, state.core.repairReadyAt - t);
 
     if (cdLeft > 0) {
@@ -121,6 +80,9 @@
     SFX.play("repair");
     fxRing(CORE_POS.x, CORE_POS.y, CORE_RADIUS+10, CORE_RADIUS+90, "#67f3a6");
     fxText(`수리 +${(heal|0)}`, CORE_POS.x, CORE_POS.y - 64, "#67f3a6");
+
+    // 임계 과부하 연계(HP<=40% 표식/버스트 연장)
+    overloadOnRepair(hpFracBefore);
   }
 
     function pickEnergyTarget(){
@@ -441,25 +403,149 @@ state.enemies.push(eObj);
   }
 // ---------- Final boss helpers ----------
 function finalBossIncomingMul(){
-  // 웨이브30 최종보스 전용: 덕칠/업그레이드 순삭 방지 내성(더 강하게)
+  // 웨이브30 최종보스 전용: 덕칠(포탑 개수) 기반 내성만 적용 (업그레이드 내성 제거)
   const tc = state.turrets.length;
-
-  // 10개부터 점감 시작 (기존 12)
   const extra = Math.max(0, tc - 10);
   const spamDR = clamp(extra * 0.055, 0, 0.70); // 포탑 많을수록 최대 70%까지 감쇄
-
-  const u = state.upg;
-  // 업그레이드 누적 내성 (상한 상향)
-  const upgPower =
-      (u.turretDmg*0.09) + (u.turretFire*0.07) + (u.turretRange*0.04) +
-      (u.projSpeed*0.05) + (u.turretCrit*0.06) + (u.splashRadius*0.06);
-
-  const upgDR = clamp(upgPower, 0, 0.35);
-  const mul = 1 - (spamDR + upgDR);
-
-  // 최소 피해 22% 보장 (기존 35%) => 훨씬 안 녹음
+  const mul = 1 - spamDR;
+  // 최소 피해 22% 보장
   return clamp(mul, 0.22, 1.0);
 }
+
+// ---------- Expose (Resonance) ----------
+function enemyExposeMul(e){
+  const t = gameSec();
+  if (e && t < (e.resExposeUntil||0)) return 1 + (e.resExposeBonus||0);
+  return 1.0;
+}
+function applyResExpose(e, dur=3.2){
+  const t = gameSec();
+  const isBoss = (e && (e.kind === 'boss' || e.isFinalBoss));
+  const bonus = isBoss ? 0.08 : 0.15;
+  e.resExposeBonus = bonus;
+  e.resExposeUntil = Math.max(e.resExposeUntil||0, t + dur);
+}
+
+// ---------- Overload (mark/burst) ----------
+function overloadEnsure(){
+  const c = state.core;
+  if (typeof c.overloadBurstUntil !== 'number') c.overloadBurstUntil = 0;
+  if (typeof c.overloadBurstReadyAt !== 'number') c.overloadBurstReadyAt = 0;
+  if (typeof c.overloadWasAbove30 !== 'boolean') c.overloadWasAbove30 = true;
+  if (typeof c.overloadExtendReadyAt !== 'number') c.overloadExtendReadyAt = 0;
+  if (typeof c.overloadKickReadyAt !== 'number') c.overloadKickReadyAt = 0;
+}
+function overloadBurstActive(){
+  overloadEnsure();
+  return gameSec() < (state.core.overloadBurstUntil||0);
+}
+function applyOverloadMark(e, add=1){
+  if (!e) return;
+  const t = gameSec();
+  e.ovMarkStacks = clamp((e.ovMarkStacks||0) + add, 0, OVERLOAD_CFG.markMax);
+  e.ovMarkUntil  = Math.max(e.ovMarkUntil||0, t + OVERLOAD_CFG.markDur);
+}
+function overloadMarkBonus(e){
+  if (!e) return 0;
+  const t = gameSec();
+  if (t >= (e.ovMarkUntil||0)) return 0;
+  const st = clamp(e.ovMarkStacks||0, 0, OVERLOAD_CFG.markMax);
+  if (st <= 0) return 0;
+  const isBoss = (e.kind === 'boss') || e.isFinalBoss;
+  return st * (isBoss ? OVERLOAD_CFG.markBonusBoss : OVERLOAD_CFG.markBonus);
+}
+
+function overloadShockBurst(){
+  overloadEnsure();
+  const t = gameSec();
+  state.core.overloadBurstUntil   = t + OVERLOAD_CFG.burstDur;
+  state.core.overloadBurstReadyAt = t + OVERLOAD_CFG.burstCd;
+
+  // Shockwave: knockback + slow
+  const R = OVERLOAD_CFG.shockR;
+  for (const e of state.enemies) {
+    const dx = e.x - CORE_POS.x, dy = e.y - CORE_POS.y;
+    const d = Math.hypot(dx,dy) || 1;
+    if (d > R) continue;
+    const k = 1 - (d / R);
+    const push = OVERLOAD_CFG.shockKnock * (0.35 + 0.65*k);
+    e.x += (dx/d) * push;
+    e.y += (dy/d) * push;
+    // slow
+    e.slowMul  = Math.min(e.slowMul || 1.0, OVERLOAD_CFG.shockSlowMul);
+    e.slowUntil = Math.max(e.slowUntil || 0, t + OVERLOAD_CFG.shockSlowDur);
+  }
+
+  // FX + camera shake
+  fxFlash(CORE_POS.x, CORE_POS.y, 640, 'rgba(251,113,133,1)');
+  fxRing(CORE_POS.x, CORE_POS.y, CORE_RADIUS+14, CORE_RADIUS+R, '#fb7185');
+  fxRing(CORE_POS.x, CORE_POS.y, CORE_RADIUS+28, CORE_RADIUS+R*0.78, '#fda4af');
+  fxText('쇼크웨이브!', CORE_POS.x, CORE_POS.y - 156, '#fb7185');
+  fxText('과부하 버스트 6s', CORE_POS.x, CORE_POS.y - 138, '#fda4af');
+
+  state.camShakeUntil = t + 0.14;
+  state.camShakeDur   = 0.14;
+  state.camShakeMag   = 10;
+
+  try { SFX.play('blast'); } catch {}
+  try { SFX.play('shield_hit'); } catch {}
+}
+
+function updateOverload(dt){
+  if (state.core.passiveId !== 'overload') return;
+  overloadEnsure();
+  const hpFrac = (state.core.hpMax>0) ? (state.core.hp/state.core.hpMax) : 1;
+  const above = hpFrac > OVERLOAD_CFG.triggerHp + 1e-6;
+  if (state.core.overloadWasAbove30 && !above) {
+    const t = gameSec();
+    if (t >= (state.core.overloadBurstReadyAt||0)) {
+      overloadShockBurst();
+    }
+  }
+  state.core.overloadWasAbove30 = above;
+}
+
+function overloadOnRepair(hpFracBefore){
+  if (state.core.passiveId !== 'overload') return;
+  overloadEnsure();
+  const t = gameSec();
+
+  if (hpFracBefore <= OVERLOAD_CFG.repairMarkHp) {
+    const list = state.enemies.slice();
+    list.sort((a,b)=>{
+      const ap = (a.isFinalBoss?2:(a.kind==='boss'?1:0));
+      const bp = (b.isFinalBoss?2:(b.kind==='boss'?1:0));
+      if (ap !== bp) return bp - ap;
+      return dist(a.x,a.y, CORE_POS.x, CORE_POS.y) - dist(b.x,b.y, CORE_POS.x, CORE_POS.y);
+    });
+    const n = Math.min(OVERLOAD_CFG.repairMarkTargets, list.length);
+    for (let i=0;i<n;i++){
+      applyOverloadMark(list[i], OVERLOAD_CFG.repairMarkAdd);
+      fxRing(list[i].x, list[i].y, 10, (list[i].r||12)+22, '#fb7185');
+    }
+    if (n>0) fxText('표식 +2', CORE_POS.x, CORE_POS.y - 84, '#fb7185');
+  }
+
+  if (t >= (state.core.overloadExtendReadyAt||0) && overloadBurstActive()) {
+    const rem = (state.core.overloadBurstUntil||0) - t;
+    if (rem > 0 && rem < OVERLOAD_CFG.extendIfRemainLt) {
+      state.core.overloadBurstUntil = t + rem + OVERLOAD_CFG.extendAdd;
+      state.core.overloadExtendReadyAt = t + OVERLOAD_CFG.extendIcd;
+      fxText('버스트 연장 +2s', CORE_POS.x, CORE_POS.y - 104, '#fda4af');
+    }
+  }
+}
+
+function overloadOnAegis(){
+  if (state.core.passiveId !== 'overload') return;
+  overloadEnsure();
+  const t = gameSec();
+  if (t < (state.core.overloadKickReadyAt||0)) return;
+  state.core.overloadKickReadyAt = t + OVERLOAD_CFG.aegisIcd;
+  state.core.overloadBurstReadyAt = Math.max(t, (state.core.overloadBurstReadyAt||0) - OVERLOAD_CFG.aegisCdReduce);
+  fxText('과부하 쿨 -6s', CORE_POS.x, CORE_POS.y - 88, '#fb7185');
+}
+
 
 function spawnEnemyForced(id, spec, x, y, elite=false){
   const arch = ENEMY_ARCH[id] || ENEMY_ARCH.grunt;
@@ -712,6 +798,8 @@ function updateFinalBoss(dt){
 
     if (state.projectiles.length >= projCap()) return;
 
+    const isOvBurst = (state.core.passiveId === "overload") && overloadBurstActive();
+
     state.projectiles.push({
       kind: "turret",
       x: t.x, y: t.y,
@@ -723,49 +811,11 @@ function updateFinalBoss(dt){
       slow: s.slow,
       life: 1.7,
       r: isCrit ? 4.6 : 3.5,
-      pierce: (s.pierce||0),
+      pierce: (s.pierce||0) + (isOvBurst ? OVERLOAD_CFG.burstPierceAdd : 0),
+      ovBurst: isOvBurst,
+      ovMiniSplash: (isOvBurst && ((s.splash||0) <= 0)),
+      ovTrail: isOvBurst,
       chain: (s.chain||0),
       chainRange: (s.chainRange||0),
       chainMul: (s.chainMul||0),
       hitSet: null
-    });
-
-    fxRing(t.x,t.y, 6, 26, "#a7f3d0");
-
-    sfxShoot();
-  }
-
-  
-  function enemyShoot(e){
-    const dx = CORE_POS.x - e.x, dy = CORE_POS.y - e.y;
-    const d = Math.hypot(dx,dy) || 1;
-    const sp = e.projSpd || 320;
-
-    if (state.projectiles.length >= projCap()) return;
-
-    state.projectiles.push({
-      kind: "enemy",
-      x: e.x, y: e.y,
-      vx: dx/d * sp,
-      vy: dy/d * sp,
-      dmg: (e.projDmg || 8) * (e.elite ? 1.10 : 1.0) * state.difficulty,
-      life: 2.2,
-      r: 3,
-      coreOpts: e.coreOpts || null
-    });
-
-    SFX.play("enemy_shoot");
-    fxRing(e.x, e.y, 6, 26, "#fbbf24");
-  }
-
-  function bombExplode(e){
-    SFX.play("blast");
-    fxRing(e.x, e.y, 16, e.explodeRad || 120, "#34d399");
-    fxText("폭발!", e.x, e.y - 16, "#34d399");
-
-    const dmg = (e.explodeDmg || 32) * (e.elite ? 1.10 : 1.0) * state.difficulty;
-    damageCore(dmg, e.coreOpts || null);
-
-    // 폭발 반경 내 포탑 파손(확률)
-    const rad = e.explodeRad || 120;
-    const chance = e.turretBreakChance || 0.35;

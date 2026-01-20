@@ -1,4 +1,46 @@
-// AUTO-SPLIT PART 07/8 (lines 4621-5390)
+// AUTO-SPLIT PART 07
+      ctx.fill();
+
+      ctx.restore();
+    }
+
+
+
+    // 에너지포 충전: 수정탑 집속 연출(빛을 모아 가장 밝아질 때 발사)
+    if (alpha > 0.01 && state.core.energyCharging) {
+      const tt = gameSec();
+      const dur = state.core.energyChargeDur || 3.0;
+      const rem = state.core.energyChargeUntil - tt;
+      const c = clamp(1 - (rem / dur), 0, 1);
+      const pulse = 0.5 + 0.5*Math.sin(tt*7.2 + c*2.2);
+
+      ctx.save();
+      ctx.globalCompositeOperation = "lighter";
+
+      // 강한 글로우(수정탑 자체가 빛나게)
+      ctx.globalAlpha = alpha * (0.10 + 0.36*c);
+      const gg = ctx.createRadialGradient(CORE_POS.x, CORE_POS.y, 8, CORE_POS.x, CORE_POS.y, 110 + 40*c);
+      gg.addColorStop(0, "rgba(203,230,255,0.85)");
+      gg.addColorStop(0.35, "rgba(96,165,250,0.55)");
+      gg.addColorStop(1, "rgba(96,165,250,0)");
+      ctx.fillStyle = gg;
+      ctx.beginPath();
+      ctx.arc(CORE_POS.x, CORE_POS.y, 120 + 30*c, 0, Math.PI*2);
+      ctx.fill();
+
+      // 외곽 링(회전 아크)
+      ctx.globalAlpha = alpha * (0.12 + 0.26*c);
+      ctx.strokeStyle = "rgba(147,197,253,0.95)";
+      ctx.lineWidth = 4.2;
+      const baseR = 88 + 8*pulse;
+      const rot = tt*2.4 + c*1.1;
+      for (let k=0;k<3;k++){
+        const a0 = rot + k*(Math.PI*2/3);
+        ctx.beginPath();
+        ctx.arc(CORE_POS.x, CORE_POS.y, baseR, a0, a0 + 0.95 + 0.25*pulse);
+        ctx.stroke();
+      }
+
       // 코어로 모이는 오브/트레일
       const orbs = state.core.energyChargeOrbs || [];
       for (const o of orbs){
@@ -724,11 +766,52 @@ function drawEnemy(e){
     ctx.fillStyle = e.elite ? "#fbbf24" : base;
     ctx.fillRect(e.x - w/2, (e.y + wob) - br - (e.isFinalBoss ? 20 : 14), w*hpR, h);
     ctx.restore();
+    // 노출(공명) 상태 표시: 주황빛 링
+    const exT = gameSec();
+    if (exT < (e.resExposeUntil||0)) {
+      const k = clamp(((e.resExposeUntil||0) - exT) / 3.2, 0, 1);
+      ctx.save();
+      ctx.globalAlpha = 0.22 + 0.28*k;
+      ctx.strokeStyle = "#fdba74";
+      ctx.lineWidth = 5;
+      ctx.beginPath();
+      ctx.arc(e.x, (e.y + wob), e.r + 10 + 3*Math.sin(nowSec()*10 + e.seedAng), 0, Math.PI*2);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    // 과부하 표식 상태 표시: 핑크 링
+    if (exT < (e.ovMarkUntil||0) && (e.ovMarkStacks||0) > 0) {
+      const st = clamp(e.ovMarkStacks||0, 0, OVERLOAD_CFG.markMax);
+      ctx.save();
+      ctx.globalAlpha = 0.23 + 0.08*st + 0.10*Math.sin(nowSec()*12);
+      ctx.strokeStyle = "rgba(251,113,133,0.95)";
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      ctx.arc(e.x, (e.y + wob), e.r + 12 + st*1.2, 0, Math.PI*2);
+      ctx.stroke();
+      ctx.restore();
+    }
   }
 
   function drawProjectile(p){
-    const col = (p.kind==="enemy" ? "#fbbf24" : (p.slow>0 ? "#a7f3d0" : "#93c5fd"));
+    let col = (p.kind==="enemy" ? "#fbbf24" : (p.slow>0 ? "#a7f3d0" : "#93c5fd"));
+    // Overload burst: red tone + short trail
+    if (p.kind === "turret" && p.ovBurst) col = "#fb7185";
     const ang = Math.atan2(p.vy||0, p.vx||0);
+    if (p.kind === "turret" && p.ovBurst) {
+      const tx = p.x - (p.vx||0) * 0.03;
+      const ty = p.y - (p.vy||0) * 0.03;
+      ctx.save();
+      ctx.globalAlpha = 0.55;
+      ctx.strokeStyle = "rgba(251,113,133,0.8)";
+      ctx.lineWidth = 3.5;
+      ctx.beginPath();
+      ctx.moveTo(tx,ty);
+      ctx.lineTo(p.x,p.y);
+      ctx.stroke();
+      ctx.restore();
+    }
     // turret shots: small bolt; enemy shots: sharp diamond
     if (p.kind === "turret") {
       withTransform(p.x, p.y, ang, () => {
@@ -736,36 +819,3 @@ function drawEnemy(e){
         ctx.fillStyle = col;
         roundRectPath(-p.r*1.2, -p.r*0.55, p.r*2.6, p.r*1.1, p.r*0.55);
         ctx.fill();
-
-        if (p.crit) {
-          ctx.globalAlpha = 0.55;
-          ctx.strokeStyle = "#ffffff";
-          ctx.lineWidth = 2;
-          roundRectPath(-p.r*1.35, -p.r*0.65, p.r*2.95, p.r*1.30, p.r*0.65);
-          ctx.stroke();
-        }
-
-        ctx.globalAlpha = 0.35;
-        ctx.fillStyle = "#ffffff";
-        roundRectPath(-p.r*1.0, -p.r*0.30, p.r*1.2, p.r*0.60, p.r*0.30);
-        ctx.fill();
-        ctx.restore();
-      });
-    } else {
-      withTransform(p.x, p.y, ang, () => {
-        ctx.save();
-        ctx.fillStyle = col;
-        polyPath(4, p.r*1.25, Math.PI/4);
-        ctx.fill();
-        ctx.globalAlpha = 0.28;
-        ctx.strokeStyle = "#ffffff";
-        ctx.lineWidth = 1.5;
-        polyPath(4, p.r*1.25, Math.PI/4);
-        ctx.stroke();
-        ctx.restore();
-      });
-    }
-  }
-
-  function drawFx(f){
-    const t = clamp(f.t / f.dur, 0, 1);
