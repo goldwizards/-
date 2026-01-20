@@ -13,12 +13,17 @@
 
     <div class="bottomRow">
     <div class="miniPanel" id="wirePanel">
-      <div class="miniTitle">와이어 상태(Star UI)</div>
+      <div class="miniTitleRow">
+        <div class="miniTitle">와이어 상태(Star UI)</div>
+      </div>
       <canvas id="wire" width="360" height="190"></canvas>
       <div class="miniText" id="wireText"></div>
     </div>
     <div class="miniPanel" id="upgPanelPC">
-      <div class="miniTitle">업그레이드</div>
+      <div class="miniTitleRow">
+        <div class="miniTitle">업그레이드</div>
+        <button class="miniTitleBtn" data-upg-panel-toggle="pc" aria-expanded="true">접기</button>
+      </div>
       <div id="uiUpgradesPC" class="small">
         <div class="upgControls" data-upg-ctx="pc">
           <div class="upgTabs">
@@ -31,6 +36,7 @@
           <button class="upgCtlBtn" data-upg-only>구매가능만: OFF</button>
           <button class="upgCtlBtn" data-upg-sort>정렬: 기본</button>
         </div>
+        <div class="upgHint">검색(/) · 탭 전환 · 정렬/구매가능 토글</div>
         <div id="uiUpgListPC"></div>
       </div>
     </div>
@@ -89,13 +95,13 @@
     </div>
 
     <div class="row">
-      <button id="btnWave">웨이브 시작</button>
+      <button id="btnWave" class="btnPrimary">웨이브 시작</button>
       <button id="btnRestart">재시작</button>
     </div>
 
     <div class="row">
-      <button id="btnRepair">수리</button>
-      <button id="btnEnergy">에너지포</button>
+      <button id="btnRepair" class="btnPrimary">수리</button>
+      <button id="btnEnergy" class="btnPrimary">에너지포</button>
     </div>
 
     <div class="row">
@@ -103,7 +109,9 @@
       <button id="btnCheat">치트 OFF</button>
     </div>
     <div class="miniPanel" style="margin-top:10px;">
-      <div class="miniTitle">코어 패시브 (4개 중 1개 선택)</div>
+      <div class="miniTitleRow">
+        <div class="miniTitle">코어 패시브 (4개 중 1개 선택)</div>
+      </div>
       <div class="corePickGrid">
         <button id="btnCoreRebuild" class="coreBtn blue">
           🔵 재건 코어
@@ -128,7 +136,9 @@
     </div>
 
 <div id="finalSupportPanel" class="miniPanel hidden" style="margin-top:10px;">
-  <div class="miniTitle">최종 지원 선택 (웨이브 30 전)</div>
+  <div class="miniTitleRow">
+    <div class="miniTitle">최종 지원 선택 (웨이브 30 전)</div>
+  </div>
   <div class="corePickGrid" style="grid-template-columns:1fr 1fr;">
     <button id="btnFinalOffense" class="coreBtn orange">
       🟠 화력 지원
@@ -145,7 +155,10 @@
 </div>
 
     <div class="miniPanel" id="upgPanelSide" style="margin-top:10px;">
-      <div class="miniTitle">업그레이드</div>
+      <div class="miniTitleRow">
+        <div class="miniTitle">업그레이드</div>
+        <button class="miniTitleBtn" data-upg-panel-toggle="side" aria-expanded="true">접기</button>
+      </div>
       <div id="uiUpgrades" class="small">
         <div class="upgControls" data-upg-ctx="side">
           <div class="upgTabs">
@@ -158,6 +171,7 @@
           <button class="upgCtlBtn" data-upg-only>구매가능만: OFF</button>
           <button class="upgCtlBtn" data-upg-sort>정렬: 기본</button>
         </div>
+        <div class="upgHint">검색(/) · 탭 전환 · 정렬/구매가능 토글</div>
         <div id="uiUpgListSide"></div>
       </div>
     </div>

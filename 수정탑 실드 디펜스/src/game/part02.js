@@ -415,13 +415,16 @@ shieldRegenBlockedUntil: 0,
 
 function ensureUpgUI(){
   if (!state.ui) {
-    state.ui = { upgTab:"all", upgSearch:"", upgOnlyCanBuy:false, upgSortMode:0, upgCollapse:{core:false,turret:false,util:false} };
+    state.ui = { upgTab:"all", upgSearch:"", upgOnlyCanBuy:false, upgSortMode:0, upgCollapse:{core:false,turret:false,util:false}, upgPanelCollapsed:{pc:false, side:false} };
   }
   if (!state.ui.upgCollapse) state.ui.upgCollapse = { core:false, turret:false, util:false };
+  if (!state.ui.upgPanelCollapsed) state.ui.upgPanelCollapsed = { pc:false, side:false };
   if (!("upgOnlyCanBuy" in state.ui)) state.ui.upgOnlyCanBuy = false;
   if (!("upgSortMode" in state.ui)) state.ui.upgSortMode = 0;
   if (!state.ui.upgTab) state.ui.upgTab = "all";
   if (state.ui.upgSearch == null) state.ui.upgSearch = "";
+  if (!("pc" in state.ui.upgPanelCollapsed)) state.ui.upgPanelCollapsed.pc = false;
+  if (!("side" in state.ui.upgPanelCollapsed)) state.ui.upgPanelCollapsed.side = false;
 }
 
 function sortLabel(mode){
@@ -446,6 +449,21 @@ function syncUpgControls(){
     // sort
     const sortBtn = w.querySelector("[data-upg-sort]");
     if (sortBtn) sortBtn.textContent = `정렬: ${sortLabel(ui.upgSortMode)}`;
+  }
+
+  const panels = [
+    { key: "pc", el: document.getElementById("upgPanelPC") },
+    { key: "side", el: document.getElementById("upgPanelSide") },
+  ];
+  for (const { key, el } of panels) {
+    if (!el) continue;
+    const collapsed = !!(ui.upgPanelCollapsed && ui.upgPanelCollapsed[key]);
+    el.classList.toggle("collapsed", collapsed);
+    const btn = el.querySelector(`[data-upg-panel-toggle="${key}"]`);
+    if (btn) {
+      btn.textContent = collapsed ? "펼치기" : "접기";
+      btn.setAttribute("aria-expanded", collapsed ? "false" : "true");
+    }
   }
 }
 
@@ -518,7 +536,7 @@ function renderUpgrades(){
       const enough = (state.crystals >= cost);
       const canBuy = canBuyOf(def);
 
-      const rowClass = canBuy ? "upgRow" : "upgRow disabled";
+      const rowClass = canBuy ? "upgRow canBuy" : "upgRow disabled";
       const btnLabel = (lv >= max) ? "MAX" : `${cost}`;
       const btnDisabled = (lv >= max) || (!enough) || (state.phase === "fail") || (state.phase === "win");
       const btnClass = btnDisabled ? "miniBtn isDisabled" : "miniBtn";
@@ -560,6 +578,8 @@ const uiMsg   = document.getElementById("uiMsg");
 const uiCheat = document.getElementById("uiCheat");
 const uiUpgradesWrap = document.getElementById("uiUpgrades");
 const uiUpgradesPCWrap = document.getElementById("uiUpgradesPC");
+const upgPanelPC = document.getElementById("upgPanelPC");
+const upgPanelSide = document.getElementById("upgPanelSide");
 const uiUpgListSide = document.getElementById("uiUpgListSide") || uiUpgradesWrap;
 const uiUpgListPC   = document.getElementById("uiUpgListPC")   || uiUpgradesPCWrap;
 const upgContainers = [uiUpgListSide, uiUpgListPC].filter(Boolean);
@@ -602,6 +622,19 @@ function bindUpgradeControls(){
         state.ui.upgSortMode = ((state.ui.upgSortMode|0) + 1) % 3;
         window.__upgLastRenderAt = 0;
         refreshUI();
+        return;
+      }
+
+      const panelBtn = ev.target.closest("[data-upg-panel-toggle]");
+      if (panelBtn) {
+        ev.preventDefault(); ev.stopPropagation();
+        ensureUpgUI();
+        const key = panelBtn.dataset.upgPanelToggle;
+        if (key) {
+          state.ui.upgPanelCollapsed[key] = !state.ui.upgPanelCollapsed[key];
+          window.__upgLastRenderAt = 0;
+          refreshUI();
+        }
         return;
       }
     }, { capture:true });
@@ -648,6 +681,28 @@ function bindUpgradeControls(){
   }
 }
 bindUpgradeControls();
+
+document.addEventListener("keydown", (ev)=>{
+  if (ev.key !== "/") return;
+  if (ev.target && (ev.target.tagName === "INPUT" || ev.target.tagName === "TEXTAREA")) return;
+  ensureUpgUI();
+  const pickSearch = () => {
+    if (upgPanelPC && !state.ui.upgPanelCollapsed.pc && upgPanelPC.offsetParent) {
+      const input = upgPanelPC.querySelector("[data-upg-search]");
+      if (input) return input;
+    }
+    if (upgPanelSide && !state.ui.upgPanelCollapsed.side && upgPanelSide.offsetParent) {
+      const input = upgPanelSide.querySelector("[data-upg-search]");
+      if (input) return input;
+    }
+    return document.querySelector("[data-upg-search]");
+  };
+  const input = pickSearch();
+  if (input) {
+    ev.preventDefault();
+    input.focus();
+  }
+});
 
   const uiEvent = document.getElementById("uiEvent");
 
