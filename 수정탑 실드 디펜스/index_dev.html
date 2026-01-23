@@ -9,7 +9,42 @@
 <body>
 <div class="wrap">
   <div class="leftCol">
+    <div class="stage" id="stage">
     <canvas id="c" width="960" height="540"></canvas>
+    <div id="hudOverlay" class="hudOverlay" aria-label="HUD">
+      <div class="hudTop">
+        <div class="hudLeft">
+          <div class="hudChip hudCrystal"><span class="hudIcon">✦</span><span id="uiCrystals">0</span></div>
+          <div class="hudChip" id="hudWave">Wave 1</div>
+        </div>
+
+        <div class="hudCenter">
+          <div class="hudBarRow">
+            <span class="hudBarLabel">HP</span>
+            <div class="hudBar"><div id="hudHpFill" class="hudFill hp"></div></div>
+            <span id="hudHpText" class="hudBarText">0/0</span>
+          </div>
+          <div class="hudBarRow">
+            <span class="hudBarLabel">SH</span>
+            <div class="hudBar"><div id="hudShFill" class="hudFill sh"></div></div>
+            <span id="hudShText" class="hudBarText">0/0</span>
+          </div>
+        </div>
+
+        <div class="hudRightLine">
+          <div class="hudChip">방어 <b id="hudArmor">0</b></div>
+          <div class="hudChip">실드 <b id="hudShArmor">0</b></div>
+          <div class="hudChip" id="hudMeta">x1.0</div>
+        </div>
+
+        <div class="hudPassive" id="hudPassiveWrap">
+          <div class="hudChip wide" id="hudPassiveText">패시브: 미선택</div>
+          <div class="hudGauge"><div id="hudPassiveFill" class="hudFill gauge"></div></div>
+        </div>
+      </div>
+      <div class="hudToast" id="uiMsg"></div>
+    </div>
+  </div>
 
     <div class="bottomRow">
     <div class="miniPanel" id="wirePanel">
@@ -57,26 +92,19 @@
       <span class="kbd">2</span> 슬로우 /
       <span class="kbd">3</span> 스플래시 /
       <span class="kbd">Space</span> 긴급 보호막 /
-      <span class=\"kbd\">E</span> 에너지포 /
+      <span class="kbd">E</span> 에너지포 /
       <span class="kbd">F</span> 수리 /
       <span class="kbd">R</span> 재시작
     </p>
 
     <div class="sep"></div>
-
-    <div class="crystalHud">
-      <div class="crystalLabel">크리스탈</div>
-      <div class="crystalValue" id="uiCrystals">0</div>
-    </div>
-
-<p class="stat" id="uiStats"></p>
+<p class="stat" id="uiStats" style="display:none"></p>
 <p class="small" id="uiEvent"></p>
     <div class="miniPanel" style="margin-top:10px;">
       <div class="miniTitle">다음 웨이브 정보</div>
       <div class="miniText" id="uiPreview"></div>
     </div>
-
-    <p class="small" id="uiMsg"></p>    <p class="small" id="uiCheat"></p>
+<p class="small" id="uiCheat"></p>
 
     <div class="row">
       <button id="btnSound">사운드 ON</button>
@@ -221,6 +249,7 @@
       <button id="chKill">적 제거</button>
       <button id="chSkip">웨이브 스킵</button>
       <button id="chGod">무적 토글</button>
+      <button id="chPassiveFull">패시브 100%</button>
       <button id="chClose" class="danger">닫기</button>
     </div>
     <div class="cheatNote">※ 모바일: 버튼으로 사용 가능 / PC: T 토글 후 K,H,J,B,N,U,G</div>

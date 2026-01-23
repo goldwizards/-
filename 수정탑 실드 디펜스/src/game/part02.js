@@ -574,6 +574,18 @@ function renderUpgrades(){
   // ---------- UI ----------
   const uiStats = document.getElementById("uiStats");
     const uiCrystals = document.getElementById("uiCrystals");
+  // HUD (상단 오버레이)
+  const hudWave = document.getElementById("hudWave");
+  const hudHpFill = document.getElementById("hudHpFill");
+  const hudHpText = document.getElementById("hudHpText");
+  const hudShFill = document.getElementById("hudShFill");
+  const hudShText = document.getElementById("hudShText");
+  const hudArmor = document.getElementById("hudArmor");
+  const hudShArmor = document.getElementById("hudShArmor");
+  const hudMeta = document.getElementById("hudMeta");
+  const hudPassiveText = document.getElementById("hudPassiveText");
+  const hudPassiveFill = document.getElementById("hudPassiveFill");
+
 const uiMsg   = document.getElementById("uiMsg");
 const uiCheat = document.getElementById("uiCheat");
 const uiUpgradesWrap = document.getElementById("uiUpgrades");

@@ -33,6 +33,24 @@
   function drawFx(f){
     const t = clamp(f.t / f.dur, 0, 1);
 
+
+    if (f.kind === "flash") {
+      const r = f.r || 520;
+      ctx.save();
+      ctx.globalCompositeOperation = "lighter";
+      ctx.globalAlpha = (1 - t) * 0.55;
+      const rr = lerp(0, r, t);
+      const g = ctx.createRadialGradient(f.x, f.y, 0, f.x, f.y, rr);
+      g.addColorStop(0, f.color || "rgba(255,255,255,1)");
+      g.addColorStop(1, "rgba(0,0,0,0)");
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.arc(f.x, f.y, rr, 0, Math.PI*2);
+      ctx.fill();
+      ctx.restore();
+      return;
+    }
+
     if (f.kind === "ring") {
       const r = lerp(f.r0, f.r1, t);
       ctx.save();
@@ -405,7 +423,7 @@ function refreshUI(){
 
     if (uiCrystals) uiCrystals.textContent = String(state.crystals|0);
 
-    
+
     // 방어 수치 표시 (패시브 보정 포함)
     let dispHpArmor = state.core.hpArmor;
     let dispShArmor = state.core.shieldArmor;
@@ -423,14 +441,42 @@ function refreshUI(){
     const hpArmorText = fmtArmor(dispHpArmor);
     const shArmorText = fmtArmor(dispShArmor);
 
-uiStats.innerHTML =
-      `<span class="badge">Wave ${state.wave}</span> ` +      `<span class="badge">HP ${Math.ceil(state.core.hp)}/${state.core.hpMax}</span> ` +
-      `<span class="badge">보호막 ${Math.ceil(state.core.shield)}/${state.core.shieldMax}</span> ` +
-      `<span class="badge">방어 ${hpArmorText}</span> ` +
-      `<span class="badge">보호막방어 ${shArmorText}</span> ` +
-      passiveBadge +
-      `<span class="badge">배속 ${state.speed.toFixed(1)}x</span> ` +
-      `<span class="badge">${state.cheat ? "치트 ON" : "치트 OFF"}</span>`;
+    // ===== 상단 HUD 업데이트 =====
+    const hp01 = state.core.hpMax>0 ? clamp(state.core.hp/state.core.hpMax, 0, 1) : 0;
+    const sh01 = state.core.shieldMax>0 ? clamp(state.core.shield/state.core.shieldMax, 0, 1) : 0;
+    if (hudHpFill) hudHpFill.style.width = `${(hp01*100).toFixed(1)}%`;
+    if (hudShFill) hudShFill.style.width = `${(sh01*100).toFixed(1)}%`;
+    if (hudHpText) hudHpText.textContent = `${Math.ceil(state.core.hp)}/${state.core.hpMax}`;
+    if (hudShText) hudShText.textContent = `${Math.ceil(state.core.shield)}/${state.core.shieldMax}`;
+
+    if (hudWave) {
+      const ph = (state.phase === 'wave') ? '전투' : (state.phase==='build'?'준비':(state.phase==='fail'?'실패':(state.phase==='end'?'클리어':'')));
+      hudWave.textContent = `Wave ${state.wave}${ph ? ` · ${ph}` : ''}`;
+    }
+    if (hudArmor) hudArmor.textContent = hpArmorText;
+    if (hudShArmor) hudShArmor.textContent = shArmorText;
+    if (hudMeta) hudMeta.textContent = `${state.speed.toFixed(1)}x${state.cheat ? ' · 치트' : ''}`;
+
+    // 패시브 텍스트/게이지
+    const passivePlain = (passiveBadge || '').replace(/<[^>]*>/g,'').trim();
+    if (hudPassiveText) hudPassiveText.textContent = passivePlain || '패시브: 미선택';
+
+    let pGauge = 0;
+    if (state.core.passiveId === "rebuild") {
+      const hpFrac = state.core.hpMax>0 ? (state.core.hp/state.core.hpMax) : 1;
+      pGauge = clamp((0.70 - hpFrac) / 0.60, 0, 1);
+    } else if (state.core.passiveId === "resonance") {
+      pGauge = resonanceGauge01();
+    } else if (state.core.passiveId === "overload" || state.core.passiveId === "overdrive") {
+      const hpFrac = state.core.hpMax>0 ? (state.core.hp/state.core.hpMax) : 1;
+      pGauge = clamp((0.40 - hpFrac) / 0.30, 0, 1);
+    } else {
+      pGauge = 0;
+    }
+    if (hudPassiveFill) hudPassiveFill.style.width = `${(clamp(pGauge,0,1)*100).toFixed(1)}%`;
+
+    // 기존 우측 패널의 텍스트 뱃지는 숨김(대폭 UI 개편)
+    if (uiStats) uiStats.innerHTML = '';
 
     // UI message (업그레이드/안내) — 이벤트 정보에 덮어쓰이지 않게 분리
     if (uiMsg) {
@@ -528,7 +574,7 @@ uiStats.innerHTML =
     syncCheatButtons();
     if (uiCheat) {
       uiCheat.textContent = state.cheat
-        ? "치트키: T=토글, K=크리스탈+500, H=HP풀, J=보호막풀, B=적삭제, N=웨이브스킵, U=업글MAX, G=무적"
+        ? "치트키: T=토글, K=크리스탈+500, H=HP풀, J=보호막풀, B=적삭제, N=웨이브스킵, U=업글MAX, G=무적, P=패시브100"
         : "";
     }
 

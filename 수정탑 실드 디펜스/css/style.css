@@ -50,7 +50,180 @@ body::before{
     .leftCol{ display:flex; flex-direction:column; gap:12px; align-items:flex-start; }
 
     
-    :root{
+    
+
+    /* ===== HUD / Stage Overlay (대폭 UI 개편) ===== */
+    .stage{
+      position: relative;
+      width: min(960px, 96vw);
+      border-radius: 16px;
+      overflow: visible;
+    }
+    /* Canvas scales with the stage */
+    #c{
+      display:block;
+      width: 100%;
+      height: auto;
+      border-radius: 16px;
+      box-shadow: 0 18px 48px rgba(0,0,0,0.45);
+      background: rgba(10,14,20,0.72);
+    }
+
+    .hudOverlay{
+      position:absolute;
+      inset:0;
+      pointer-events:none;
+    }
+    /* HUD: 모바일에서 캔버스 가림을 줄이기 위해 "상단 1줄 + 체력바 + 패시브" 3줄 그리드 */
+    .hudTop{
+      position:absolute;
+      left: 10px;
+      right: 10px;
+      top: 10px;
+      display:grid;
+      grid-template-columns: auto 1fr auto;
+      grid-template-rows: auto auto auto;
+      column-gap: 8px;
+      row-gap: 6px;
+      align-items:center;
+    }
+    .hudLeft{
+      grid-column: 1;
+      grid-row: 1;
+      display:flex;
+      gap: 6px;
+      align-items:center;
+    }
+    .hudRightLine{
+      grid-column: 3;
+      grid-row: 1;
+      display:flex;
+      gap: 6px;
+      align-items:center;
+      justify-content:flex-end;
+      flex-wrap:wrap;
+    }
+    .hudCenter{
+      grid-column: 1 / 4;
+      grid-row: 2;
+      display:flex;
+      flex-direction: column;
+      gap: 4px;
+      align-items: stretch;
+      min-width: 0;
+    }
+    .hudPassive{
+      grid-column: 1 / 4;
+      grid-row: 3;
+      display:flex;
+      gap: 6px;
+      align-items:center;
+      justify-content:flex-end;
+      min-width: 0;
+    }
+    .hudChip{
+      display:inline-flex;
+      align-items:center;
+      gap: 6px;
+      padding: 4px 8px;
+      border-radius: 999px;
+      background: rgba(9, 13, 20, 0.66);
+      border: 1px solid rgba(120, 160, 210, 0.22);
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+      font-size: 12px;
+      line-height: 1;
+      white-space: nowrap;
+    }
+    .hudChip.wide{
+      max-width: min(360px, 60vw);
+      overflow:hidden;
+      text-overflow: ellipsis;
+    }
+    .hudCrystal{
+      font-weight: 700;
+      letter-spacing: 0.3px;
+    }
+    .hudIcon{
+      opacity: 0.95;
+    }
+    .hudBarRow{
+      display:flex;
+      gap: 6px;
+      align-items:center;
+    }
+    .hudBarLabel{
+      font-size: 11px;
+      opacity: 0.85;
+      width: 22px;
+      text-align: right;
+    }
+    .hudBar{
+      position: relative;
+      flex: 1 1 auto;
+      height: 8px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.07);
+      border: 1px solid rgba(255,255,255,0.10);
+      overflow:hidden;
+    }
+    .hudFill{
+      height:100%;
+      width: 0%;
+      border-radius: 999px;
+      transition: width 120ms linear;
+    }
+    .hudFill.hp{
+      background: linear-gradient(90deg, rgba(255,110,110,0.95), rgba(255,70,70,0.95));
+    }
+    .hudFill.sh{
+      background: linear-gradient(90deg, rgba(90,200,255,0.95), rgba(70,140,255,0.95));
+    }
+    .hudFill.gauge{
+      background: linear-gradient(90deg, rgba(163,230,53,0.92), rgba(34,197,94,0.92));
+    }
+    .hudBarText{
+      font-size: 11px;
+      opacity: 0.90;
+      min-width: 62px;
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+    }
+    .hudGauge{
+      width: 92px;
+      height: 8px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.07);
+      border: 1px solid rgba(255,255,255,0.10);
+      overflow:hidden;
+    }
+    .hudToast{
+      position:absolute;
+      left: 10px;
+      right: 10px;
+      bottom: 10px;
+      display:flex;
+      justify-content:center;
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 0.2px;
+      color: rgba(230,237,243,0.95);
+      text-shadow: 0 2px 10px rgba(0,0,0,0.55);
+      padding: 0 6px;
+      min-height: 18px;
+    }
+
+    @media (max-width: 720px){
+      .hudChip{ font-size: 11px; padding: 4px 7px; }
+      .hudChip.wide{ max-width: min(320px, 56vw); }
+      .hudBar{ height: 7px; }
+      .hudGauge{ width: 80px; height: 7px; }
+      .hudBarText{ min-width: 56px; font-size: 10px; }
+      .hudBarLabel{ font-size: 10px; width: 20px; }
+      .hudTop{ left: 8px; right: 8px; top: 8px; row-gap: 5px; }
+      .hudToast{ left: 8px; right: 8px; bottom: 8px; font-size: 12px; }
+    }
+:root{
       /* PC 하단(와이어/업글) 패널 높이: 페이지 전체 스크롤을 만들지 않게 내부 스크롤로 처리 */
       --bottomPanelH: 280px;
     }

@@ -963,6 +963,7 @@ final: null,       // 최종 보스 패턴 상태
       // 코어 패시브(4택1)
       passiveId: null,        // "
       passiveLocked: false, // 재시작 전까지 패시브 변경 금지 ("rebuild" | "resonance" | "overload" | "overdrive")
+      passiveCheatFull: false, // 치트: 현재 패시브를 100%로 고정
       passiveStacks: 0,       // 공명 반격 스택
       passiveLastHitAt: -999, // 마지막 피격(스택 유지/감소용)
       passiveStackDecayAcc: 0,
@@ -1110,6 +1111,39 @@ shieldRegenBlockedUntil: 0,
     if (!cheatGuard()) return;
     state.god = !state.god;
     setMsg(state.god ? "무적 ON" : "무적 OFF", 2.0);
+  }
+
+
+  function passiveCheatFullOn(){
+    return !!(state.cheat && state.core.passiveCheatFull);
+  }
+
+  function cheatPassiveFull(){
+    if (!cheatGuard()) return;
+    if (!state.core.passiveId){
+      setMsg("패시브를 먼저 선택하세요.", 1.6);
+      return;
+    }
+    state.core.passiveCheatFull = !state.core.passiveCheatFull;
+    if (state.core.passiveCheatFull){
+      setMsg("패시브 100%: ON", 1.8);
+      if (state.core.passiveId === "resonance"){
+        resonanceEnsure();
+        state.core.resGauge = 100;
+        state.core.resChargePenaltyHpUntil = 0;
+        state.core.resChargePenaltyBreakUntil = 0;
+      }
+    } else {
+      setMsg("패시브 100%: OFF", 1.8);
+      if (state.core.passiveId === "overload"){
+        overloadEnsure();
+        state.core.overloadBurstUntil = 0;
+        state.core.overloadBurstReadyAt = 0;
+        const hpFrac = (state.core.hpMax>0) ? (state.core.hp/state.core.hpMax) : 1;
+        state.core.overloadWasAbove30 = hpFrac > OVERLOAD_CFG.triggerHp + 1e-6;
+      }
+    }
+    syncCheatButtons();
   }
 
   // ---------- Upgrades ----------
@@ -1394,6 +1428,19 @@ function renderUpgrades(){
   // ---------- UI ----------
   const uiStats = document.getElementById("uiStats");
     const uiCrystals = document.getElementById("uiCrystals");
+  // HUD (상단 오버레이)
+  const hudWave = document.getElementById("hudWave");
+  const hudHpFill = document.getElementById("hudHpFill");
+  const hudHpText = document.getElementById("hudHpText");
+  const hudShFill = document.getElementById("hudShFill");
+  const hudShText = document.getElementById("hudShText");
+  const hudArmor = document.getElementById("hudArmor");
+  const hudShArmor = document.getElementById("hudShArmor");
+  const hudMeta = document.getElementById("hudMeta");
+  const hudPassiveWrap = document.getElementById("hudPassiveWrap");
+  const hudPassiveText = document.getElementById("hudPassiveText");
+  const hudPassiveFill = document.getElementById("hudPassiveFill");
+
 const uiMsg   = document.getElementById("uiMsg");
 const uiCheat = document.getElementById("uiCheat");
 const uiUpgradesWrap = document.getElementById("uiUpgrades");
@@ -1659,6 +1706,7 @@ const uiFinalSupportDesc = document.getElementById("uiFinalSupportDesc");
 
   function resonanceGauge01(){
     resonanceEnsure();
+    if (passiveCheatFullOn() && state.core.passiveId === "resonance") return 1;
     return clamp((state.core.resGauge||0)/100, 0, 1);
   }
 
@@ -1812,6 +1860,12 @@ const uiFinalSupportDesc = document.getElementById("uiFinalSupportDesc");
     resonanceEnsure();
     const c = state.core;
     const t = gameSec();
+
+    if (passiveCheatFullOn()) {
+      c.resGauge = 100;
+      c.resChargePenaltyHpUntil = 0;
+      c.resChargePenaltyBreakUntil = 0;
+    }
     resonancePrune();
 
     // 흡수 공백 후 감쇠 (최종전은 유지시간을 조금 더 늘려 체감 강화)
@@ -2025,6 +2079,7 @@ const cheatModal = document.getElementById("cheatModal");
   const chKill = document.getElementById("chKill");
   const chSkip = document.getElementById("chSkip");
   const chGod = document.getElementById("chGod");
+  const chPassiveFull = document.getElementById("chPassiveFull");
   const chClose = document.getElementById("chClose");
 
   // Final support buttons (mobile)
@@ -2046,6 +2101,9 @@ const cheatModal = document.getElementById("cheatModal");
     }
     if (chGod){
       chGod.textContent = state.god ? "무적 OFF" : "무적 ON";
+    }
+    if (chPassiveFull){
+      chPassiveFull.textContent = state.core.passiveCheatFull ? "패시브 100% OFF" : "패시브 100% ON";
     }
   }
 
@@ -2084,6 +2142,7 @@ const cheatModal = document.getElementById("cheatModal");
   bindCheatBtn(chKill, ()=>cheatKillAll());
   bindCheatBtn(chSkip, ()=>cheatSkipWave());
   bindCheatBtn(chGod, ()=>toggleGod());
+  bindCheatBtn(chPassiveFull, ()=>cheatPassiveFull());
 
 
 
@@ -2415,7 +2474,7 @@ const cheatModal = document.getElementById("cheatModal");
 
     // Cheat actions (only when cheat ON)
     if (state.cheat){
-      if (["KeyK","KeyH","KeyJ","KeyB","KeyN","KeyU","KeyG"].includes(e.code)) { e.preventDefault(); ensureAudio(); }
+      if (["KeyK","KeyH","KeyJ","KeyB","KeyN","KeyU","KeyG","KeyP"].includes(e.code)) { e.preventDefault(); ensureAudio(); }
       if (e.code === "KeyK") cheatAddCrystals(500);
       if (e.code === "KeyH") cheatHealHP();
       if (e.code === "KeyJ") cheatRefillShield();
@@ -2423,6 +2482,7 @@ const cheatModal = document.getElementById("cheatModal");
       if (e.code === "KeyN") cheatSkipWave();
       if (e.code === "KeyU") cheatMaxUpgrades();
       if (e.code === "KeyG") toggleGod();
+      if (e.code === "KeyP") cheatPassiveFull();
     }
 
   });
@@ -2971,6 +3031,10 @@ function applyOverloadMark(e, add=1){
 }
 function overloadMarkBonus(e){
   if (!e) return 0;
+  if (passiveCheatFullOn() && state.core.passiveId === 'overload') {
+    const isBoss = (e.kind === 'boss') || e.isFinalBoss;
+    return OVERLOAD_CFG.markMax * (isBoss ? OVERLOAD_CFG.markBonusBoss : OVERLOAD_CFG.markBonus);
+  }
   const t = gameSec();
   if (t >= (e.ovMarkUntil||0)) return 0;
   const st = clamp(e.ovMarkStacks||0, 0, OVERLOAD_CFG.markMax);
@@ -3018,6 +3082,14 @@ function overloadShockBurst(){
 function updateOverload(dt){
   if (state.core.passiveId !== 'overload') return;
   overloadEnsure();
+  if (passiveCheatFullOn()) {
+    const t = gameSec();
+    // 치트: 체력/트리거와 무관하게 항상 버스트(최대 효율)
+    state.core.overloadBurstUntil = t + 9999;
+    state.core.overloadBurstReadyAt = 0;
+    state.core.overloadWasAbove30 = false;
+    return;
+  }
   const hpFrac = (state.core.hpMax>0) ? (state.core.hp/state.core.hpMax) : 1;
   const above = hpFrac > OVERLOAD_CFG.triggerHp + 1e-6;
   if (state.core.overloadWasAbove30 && !above) {
@@ -3293,7 +3365,7 @@ function updateFinalBoss(dt){
     if (state.core.passiveId === "overload") {
       const hpFrac = state.core.hpMax>0 ? (state.core.hp/state.core.hpMax) : 1;
       // HP 40% 이하부터 가속, 10%에서 최대
-      const tO = clamp((0.40 - hpFrac) / 0.30, 0, 1);
+      const tO = passiveCheatFullOn() ? 1 : clamp((0.40 - hpFrac) / 0.30, 0, 1);
       // 최대: 피해 +75%, 공속 +55%
       out.dmg *= (1 + 0.75*tO);
       out.fireRate *= (1 + 0.55*tO);
@@ -3519,6 +3591,11 @@ function applyProjectileHit(p, hit){
 
   // ---------- FX ----------
   function fxRing(x,y, r0, r1, color){ state.fx.push({ kind:"ring", x,y, t:0, dur:0.35, r0, r1, color }); }
+
+  function fxFlash(x,y, r=520, color="rgba(255,255,255,1)") {
+    // Radial flash (used for Overload/impact moments)
+    state.fx.push({ kind:"flash", x, y, t:0, dur:0.22, r, color });
+  }
 function fxLine(x1,y1,x2,y2, color, dur=0.9, width=4){
     state.fx.push({ kind:"line", x1,y1,x2,y2, t:0, dur, color, width });
   }
@@ -3784,13 +3861,13 @@ function fxLine(x1,y1,x2,y2, color, dur=0.9, width=4){
     let bonusShieldArmor = 0;
     // 임계 과부하: 저체력 피해 감소 (HP 35%↓부터, 10%에서 최대 25%)
     if (state.core.passiveId === "overload") {
-      const tO = clamp((0.35 - hpFrac0) / 0.25, 0, 1);
+      const tO = passiveCheatFullOn() ? 1 : clamp((0.35 - hpFrac0) / 0.25, 0, 1);
       amount *= (1 - 0.25*tO);
     }
 
     // 코어 오버드라이브: 저체력 피해 감소 (HP 40%↓부터, 10%에서 최대 18%)
     if (state.core.passiveId === "overdrive") {
-      const tO = clamp((0.40 - hpFrac0) / 0.30, 0, 1);
+      const tO = passiveCheatFullOn() ? 1 : clamp((0.40 - hpFrac0) / 0.30, 0, 1);
       amount *= (1 - 0.18*tO);
     }
 
@@ -3798,7 +3875,7 @@ function fxLine(x1,y1,x2,y2, color, dur=0.9, width=4){
     if (state.core.passiveId === "rebuild") {
       // HP 70%↓부터 방어/DR이 시작, HP 10%에서 최대치
       // (주의) 예전 hpPct/clamp01 참조로 런타임 에러가 나서 적/포탑 공격이 멈추는 버그가 있었음
-      const tB = clamp((0.70 - hpFrac0) / 0.60, 0, 1);       // 70%->0, 10%->1
+      const tB = passiveCheatFullOn() ? 1 : clamp((0.70 - hpFrac0) / 0.60, 0, 1);       // 70%->0, 10%->1
       // 저체력일수록 방어/보호막방어 보정 (최대 방어 +15 / 보호막방어 +7.5)
       bonusHpArmor = 15 * tB;
       bonusShieldArmor = 7.5 * tB;
@@ -4495,13 +4572,13 @@ function restart(){
       // 임계 과부하: 최대 +110%
       if (state.core.passiveId === "overload") {
         const hpFrac = state.core.hpMax>0 ? (state.core.hp/state.core.hpMax) : 1;
-        const tO = clamp((0.40 - hpFrac) / 0.30, 0, 1);
+        const tO = passiveCheatFullOn() ? 1 : clamp((0.40 - hpFrac) / 0.30, 0, 1);
         passiveShieldRegenMul *= (1 + 1.10*tO);
       }
       // 코어 오버드라이브: 최대 +60%
       if (state.core.passiveId === "overdrive") {
         const hpFrac = state.core.hpMax>0 ? (state.core.hp/state.core.hpMax) : 1;
-        const tO = clamp((0.40 - hpFrac) / 0.30, 0, 1);
+        const tO = passiveCheatFullOn() ? 1 : clamp((0.40 - hpFrac) / 0.30, 0, 1);
         passiveShieldRegenMul *= (1 + 0.60*tO);
       }
 if (gameSec() >= state.core.shieldRegenBlockedUntil) {
@@ -4604,7 +4681,8 @@ if (state.phase === "wave" && state.wave === FINAL_WAVE) {
     // 코어 패시브: 코어 오버드라이브(수정탑 직접 공격)
     if (state.phase === "wave" && state.core.passiveId === "overdrive") {
       const hpFrac = state.core.hpMax>0 ? (state.core.hp/state.core.hpMax) : 1;
-      const m = clamp(1 - hpFrac, 0, 1); // missing HP (0~1)
+      let m = clamp(1 - hpFrac, 0, 1); // missing HP (0~1)
+      if (passiveCheatFullOn()) { /* 치트: 체력과 무관하게 최대 효율 */ m = 1; }
       const dmgMul = clamp(1 + 1.4*Math.pow(m, 1.6), 1, 2.4);
       const asMul  = clamp(1 + 2.0*Math.pow(m, 1.2), 1, 3.0);
 
@@ -5837,6 +5915,24 @@ function drawEnemy(e){
   function drawFx(f){
     const t = clamp(f.t / f.dur, 0, 1);
 
+
+    if (f.kind === "flash") {
+      const r = f.r || 520;
+      ctx.save();
+      ctx.globalCompositeOperation = "lighter";
+      ctx.globalAlpha = (1 - t) * 0.55;
+      const rr = lerp(0, r, t);
+      const g = ctx.createRadialGradient(f.x, f.y, 0, f.x, f.y, rr);
+      g.addColorStop(0, f.color || "rgba(255,255,255,1)");
+      g.addColorStop(1, "rgba(0,0,0,0)");
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.arc(f.x, f.y, rr, 0, Math.PI*2);
+      ctx.fill();
+      ctx.restore();
+      return;
+    }
+
     if (f.kind === "ring") {
       const r = lerp(f.r0, f.r1, t);
       ctx.save();
@@ -5862,20 +5958,44 @@ function drawEnemy(e){
     }
 
     if (f.kind === "shieldWave") {
-      const r = lerp(f.r0, f.r1, t);
+      const r = f.r0;
       ctx.save();
-      ctx.globalAlpha = (1 - t) * 0.65;
+      ctx.globalCompositeOperation = "lighter";
+      ctx.globalAlpha = (1 - t) * 0.6;
+      ctx.shadowColor = "#7dd3fc";
+      ctx.shadowBlur = 14;
+      ctx.globalAlpha = (1 - t) * 0.5;
+      ctx.shadowColor = "#7dd3fc";
+      ctx.shadowBlur = 12;
       ctx.beginPath();
-      ctx.ellipse(f.x, f.y, r*1.05, r*0.95, 0, 0, Math.PI*2);
-      ctx.strokeStyle = f.color;
-      ctx.lineWidth = 5;
-      ctx.stroke();
+      ctx.ellipse(f.x, f.y, r*0.88, r*0.80, 0, 0, Math.PI*2);
+      ctx.fillStyle = "rgba(125,211,252,0.16)";
+      ctx.fill();
 
-      ctx.globalAlpha *= 0.8;
+      ctx.globalAlpha = (1 - t) * 0.55;
+      ctx.beginPath();
+      ctx.arc(f.x, f.y, r*0.9, 0, Math.PI*2);
+      ctx.fillStyle = "rgba(125,211,252,0.22)";
+      ctx.fill();
+
+      ctx.globalAlpha = (1 - t) * 0.35;
+      ctx.beginPath();
+      ctx.arc(f.x, f.y, r*0.6, 0, Math.PI*2);
+      ctx.fillStyle = "rgba(224,242,254,0.25)";
+      ctx.fill();
+      ctx.shadowBlur = 6;
+      ctx.globalAlpha *= 0.85;
       ctx.beginPath();
       ctx.ellipse(f.x, f.y, r*0.78, r*0.68, 0, 0, Math.PI*2);
       ctx.strokeStyle = "#93c5fd";
       ctx.lineWidth = 2;
+      ctx.stroke();
+
+      ctx.globalAlpha = (1 - t) * 0.35;
+      ctx.beginPath();
+      ctx.ellipse(f.x, f.y, r*0.55, r*0.48, 0, 0, Math.PI*2);
+      ctx.strokeStyle = "#e0f2fe";
+      ctx.lineWidth = 1.5;
       ctx.stroke();
       ctx.restore();
       return;
@@ -6140,7 +6260,7 @@ function refreshUI(){
       const d = CORE_PASSIVES[state.core.passiveId];
       if (state.core.passiveId === "rebuild") {
         const hpFrac = state.core.hpMax>0 ? (state.core.hp/state.core.hpMax) : 1;
-        const tB = clamp((0.70 - hpFrac) / 0.60, 0, 1);
+        const tB = passiveCheatFullOn() ? 1 : clamp((0.70 - hpFrac) / 0.60, 0, 1);
         const dr = (12*tB);
         const tNow = gameSec();
         const emOn = (tNow < (state.core.rebuildEmergencyUntil||0));
@@ -6156,7 +6276,7 @@ function refreshUI(){
       } else if (state.core.passiveId === "overload") {
         const tNow = gameSec();
         const hpFrac = state.core.hpMax>0 ? (state.core.hp/state.core.hpMax) : 1;
-        const tO = clamp((0.40 - hpFrac) / 0.30, 0, 1);
+        const tO = passiveCheatFullOn() ? 1 : clamp((0.40 - hpFrac) / 0.30, 0, 1);
 
         // 버스트/쇼크 상태
         overloadEnsure();
@@ -6176,7 +6296,7 @@ function refreshUI(){
         passiveBadge = `<span class="badge ${d.colorClass}">패시브: ${d.name} (과부하 ${(tO*100)|0}% | ${burstInfo} | ${markInfo})<\/span> `;
       } else if (state.core.passiveId === "overdrive") {
         const hpFrac = state.core.hpMax>0 ? (state.core.hp/state.core.hpMax) : 1;
-        const tO = clamp((0.40 - hpFrac) / 0.30, 0, 1);
+        const tO = passiveCheatFullOn() ? 1 : clamp((0.40 - hpFrac) / 0.30, 0, 1);
         passiveBadge = `<span class="badge ${d.colorClass}">패시브: ${d.name} (오버드라이브 ${(tO*100)|0}%)<\/span> `;
       }
     } else {
@@ -6185,13 +6305,13 @@ function refreshUI(){
 
     if (uiCrystals) uiCrystals.textContent = String(state.crystals|0);
 
-    
+
     // 방어 수치 표시 (패시브 보정 포함)
     let dispHpArmor = state.core.hpArmor;
     let dispShArmor = state.core.shieldArmor;
     if (state.core.passiveId === "rebuild") {
       const hpFrac = state.core.hpMax>0 ? (state.core.hp/state.core.hpMax) : 1;
-      const tB = clamp((0.70 - hpFrac) / 0.60, 0, 1);
+      const tB = passiveCheatFullOn() ? 1 : clamp((0.70 - hpFrac) / 0.60, 0, 1);
       dispHpArmor += 15 * tB;
       dispShArmor += 6.5 * tB;
     }
@@ -6203,14 +6323,46 @@ function refreshUI(){
     const hpArmorText = fmtArmor(dispHpArmor);
     const shArmorText = fmtArmor(dispShArmor);
 
-uiStats.innerHTML =
-      `<span class="badge">Wave ${state.wave}</span> ` +      `<span class="badge">HP ${Math.ceil(state.core.hp)}/${state.core.hpMax}</span> ` +
-      `<span class="badge">보호막 ${Math.ceil(state.core.shield)}/${state.core.shieldMax}</span> ` +
-      `<span class="badge">방어 ${hpArmorText}</span> ` +
-      `<span class="badge">보호막방어 ${shArmorText}</span> ` +
-      passiveBadge +
-      `<span class="badge">배속 ${state.speed.toFixed(1)}x</span> ` +
-      `<span class="badge">${state.cheat ? "치트 ON" : "치트 OFF"}</span>`;
+    // ===== 상단 HUD 업데이트 =====
+    const hp01 = state.core.hpMax>0 ? clamp(state.core.hp/state.core.hpMax, 0, 1) : 0;
+    const sh01 = state.core.shieldMax>0 ? clamp(state.core.shield/state.core.shieldMax, 0, 1) : 0;
+    if (hudHpFill) hudHpFill.style.width = `${(hp01*100).toFixed(1)}%`;
+    if (hudShFill) hudShFill.style.width = `${(sh01*100).toFixed(1)}%`;
+    if (hudHpText) hudHpText.textContent = `${Math.ceil(state.core.hp)}/${state.core.hpMax}`;
+    if (hudShText) hudShText.textContent = `${Math.ceil(state.core.shield)}/${state.core.shieldMax}`;
+
+    if (hudWave) {
+      const ph = (state.phase === 'wave') ? '전투' : (state.phase==='build'?'준비':(state.phase==='fail'?'실패':(state.phase==='end'?'클리어':'')));
+      hudWave.textContent = `Wave ${state.wave}${ph ? ` · ${ph}` : ''}`;
+    }
+    if (hudArmor) hudArmor.textContent = hpArmorText;
+    if (hudShArmor) hudShArmor.textContent = shArmorText;
+    if (hudMeta) hudMeta.textContent = `${state.speed.toFixed(1)}x${state.cheat ? ' · 치트' : ''}`;
+
+    // 패시브 텍스트/게이지
+    // - "패시브: 미선택" 같은 문구는 HUD 공간만 차지하므로, 실제 패시브가 선택됐을 때만 표시합니다.
+    const passivePlain = (passiveBadge || '').replace(/<[^>]*>/g,'').trim();
+    const hasPassive = !!state.core.passiveId;
+    if (hudPassiveWrap) hudPassiveWrap.style.display = hasPassive ? '' : 'none';
+    if (hudPassiveText) hudPassiveText.textContent = hasPassive ? passivePlain : '';
+
+    let pGauge = 0;
+    if (state.core.passiveId === "rebuild") {
+      const hpFrac = state.core.hpMax>0 ? (state.core.hp/state.core.hpMax) : 1;
+      pGauge = clamp((0.70 - hpFrac) / 0.60, 0, 1);
+    } else if (state.core.passiveId === "resonance") {
+      pGauge = resonanceGauge01();
+    } else if (state.core.passiveId === "overload" || state.core.passiveId === "overdrive") {
+      const hpFrac = state.core.hpMax>0 ? (state.core.hp/state.core.hpMax) : 1;
+      pGauge = clamp((0.40 - hpFrac) / 0.30, 0, 1);
+    } else {
+      pGauge = 0;
+    }
+    if (passiveCheatFullOn()) pGauge = 1; // cheat
+    if (hudPassiveFill) hudPassiveFill.style.width = `${(clamp(pGauge,0,1)*100).toFixed(1)}%`;
+
+    // 기존 우측 패널의 텍스트 뱃지는 숨김(대폭 UI 개편)
+    if (uiStats) uiStats.innerHTML = '';
 
     // UI message (업그레이드/안내) — 이벤트 정보에 덮어쓰이지 않게 분리
     if (uiMsg) {
@@ -6308,7 +6460,7 @@ uiStats.innerHTML =
     syncCheatButtons();
     if (uiCheat) {
       uiCheat.textContent = state.cheat
-        ? "치트키: T=토글, K=크리스탈+500, H=HP풀, J=보호막풀, B=적삭제, N=웨이브스킵, U=업글MAX, G=무적"
+        ? "치트키: T=토글, K=크리스탈+500, H=HP풀, J=보호막풀, B=적삭제, N=웨이브스킵, U=업글MAX, G=무적, P=패시브100"
         : "";
     }
 
@@ -6622,4 +6774,3 @@ if (mbFinalRow) {
   }
 
 })();
-

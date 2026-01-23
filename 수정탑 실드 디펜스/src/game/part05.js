@@ -175,6 +175,11 @@ function applyProjectileHit(p, hit){
 
   // ---------- FX ----------
   function fxRing(x,y, r0, r1, color){ state.fx.push({ kind:"ring", x,y, t:0, dur:0.35, r0, r1, color }); }
+
+  function fxFlash(x,y, r=520, color="rgba(255,255,255,1)") {
+    // Radial flash (used for Overload/impact moments)
+    state.fx.push({ kind:"flash", x, y, t:0, dur:0.22, r, color });
+  }
 function fxLine(x1,y1,x2,y2, color, dur=0.9, width=4){
     state.fx.push({ kind:"line", x1,y1,x2,y2, t:0, dur, color, width });
   }

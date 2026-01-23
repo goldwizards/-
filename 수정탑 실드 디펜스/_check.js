@@ -2333,7 +2333,7 @@ const cheatModal = document.getElementById("cheatModal");
 
     // Cheat actions (only when cheat ON)
     if (state.cheat){
-      if (["KeyK","KeyH","KeyJ","KeyB","KeyN","KeyU","KeyG"].includes(e.code)) { e.preventDefault(); ensureAudio(); }
+      if (["KeyK","KeyH","KeyJ","KeyB","KeyN","KeyU","KeyG","KeyP"].includes(e.code)) { e.preventDefault(); ensureAudio(); }
       if (e.code === "KeyK") cheatAddCrystals(500);
       if (e.code === "KeyH") cheatHealHP();
       if (e.code === "KeyJ") cheatRefillShield();
@@ -2341,6 +2341,7 @@ const cheatModal = document.getElementById("cheatModal");
       if (e.code === "KeyN") cheatSkipWave();
       if (e.code === "KeyU") cheatMaxUpgrades();
       if (e.code === "KeyG") toggleGod();
+      if (e.code === "KeyP") cheatPassiveFull();
     }
 
   });
@@ -5976,7 +5977,7 @@ uiStats.innerHTML =
     syncCheatButtons();
     if (uiCheat) {
       uiCheat.textContent = state.cheat
-        ? "치트키: T=토글, K=크리스탈+500, H=HP풀, J=보호막풀, B=적삭제, N=웨이브스킵, U=업글MAX, G=무적"
+        ? "치트키: T=토글, K=크리스탈+500, H=HP풀, J=보호막풀, B=적삭제, N=웨이브스킵, U=업글MAX, G=무적, P=패시브100"
         : "";
     }
 

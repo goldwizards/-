@@ -58,7 +58,186 @@ body::before{
     .leftCol{ display:flex; flex-direction:column; gap:12px; align-items:flex-start; }
 
     
-    :root{
+    
+
+    /* ===== HUD / Stage Overlay (대폭 UI 개편) ===== */
+    .stage{
+      position: relative;
+      width: min(960px, 96vw);
+      border-radius: 16px;
+      overflow: visible;
+    }
+    /* Canvas scales with the stage */
+    #c{
+      display:block;
+      width: 100%;
+      height: auto;
+      border-radius: 16px;
+      box-shadow: 0 18px 48px rgba(0,0,0,0.45);
+      background: rgba(10,14,20,0.72);
+    }
+
+    .hudOverlay{
+      position: relative;
+      pointer-events:none;
+      width: min(960px, 96vw);
+    }
+    /* HUD: 모바일에서 캔버스 가림을 줄이기 위해 "상단 1줄 + 체력바 + 패시브" 3줄 그리드 */
+    .hudTop{
+      position: relative;
+      left: auto;
+      right: auto;
+      top: auto;
+      padding: 10px 10px 8px;
+      border-radius: 14px;
+      background: rgba(9, 13, 20, 0.78);
+      border: 1px solid rgba(120, 160, 210, 0.24);
+      box-shadow: 0 12px 34px rgba(0,0,0,0.40);
+      display:grid;
+      grid-template-columns: auto 1fr auto;
+      grid-template-rows: auto auto auto;
+      column-gap: 8px;
+      row-gap: 6px;
+      align-items:center;
+    }
+    .hudLeft{
+      grid-column: 1;
+      grid-row: 1;
+      display:flex;
+      gap: 6px;
+      align-items:center;
+    }
+    .hudRightLine{
+      grid-column: 3;
+      grid-row: 1;
+      display:flex;
+      gap: 6px;
+      align-items:center;
+      justify-content:flex-end;
+      flex-wrap:wrap;
+    }
+    .hudCenter{
+      grid-column: 1 / 4;
+      grid-row: 2;
+      display:flex;
+      flex-direction: column;
+      gap: 4px;
+      align-items: stretch;
+      min-width: 0;
+    }
+    .hudPassive{
+      grid-column: 1 / 4;
+      grid-row: 3;
+      display:flex;
+      gap: 6px;
+      align-items:center;
+      justify-content:flex-end;
+      min-width: 0;
+    }
+    .hudChip{
+      display:inline-flex;
+      align-items:center;
+      gap: 6px;
+      padding: 4px 8px;
+      border-radius: 999px;
+      background: rgba(9, 13, 20, 0.66);
+      border: 1px solid rgba(120, 160, 210, 0.22);
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+      font-size: 12px;
+      line-height: 1;
+      white-space: nowrap;
+    }
+    .hudChip.wide{
+      max-width: min(360px, 60vw);
+      overflow:hidden;
+      text-overflow: ellipsis;
+    }
+    .hudCrystal{
+      font-weight: 700;
+      letter-spacing: 0.3px;
+    }
+    .hudIcon{
+      opacity: 0.95;
+    }
+    .hudBarRow{
+      display:flex;
+      gap: 6px;
+      align-items:center;
+    }
+    .hudBarLabel{
+      font-size: 11px;
+      opacity: 0.85;
+      width: 22px;
+      text-align: right;
+    }
+    .hudBar{
+      position: relative;
+      flex: 1 1 auto;
+      height: 8px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.07);
+      border: 1px solid rgba(255,255,255,0.10);
+      overflow:hidden;
+    }
+    .hudFill{
+      height:100%;
+      width: 0%;
+      border-radius: 999px;
+      transition: width 120ms linear;
+    }
+    .hudFill.hp{
+      background: linear-gradient(90deg, rgba(255,110,110,0.95), rgba(255,70,70,0.95));
+    }
+    .hudFill.sh{
+      background: linear-gradient(90deg, rgba(90,200,255,0.95), rgba(70,140,255,0.95));
+    }
+    .hudFill.gauge{
+      background: linear-gradient(90deg, rgba(163,230,53,0.92), rgba(34,197,94,0.92));
+    }
+    .hudBarText{
+      font-size: 11px;
+      opacity: 0.90;
+      min-width: 62px;
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+    }
+    .hudGauge{
+      width: 92px;
+      height: 8px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.07);
+      border: 1px solid rgba(255,255,255,0.10);
+      overflow:hidden;
+    }
+    .hudToast{
+      pointer-events:none;
+      position:absolute;
+      left: 10px;
+      right: 10px;
+      bottom: 10px;
+      display:flex;
+      justify-content:center;
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 0.2px;
+      color: rgba(230,237,243,0.95);
+      text-shadow: 0 2px 10px rgba(0,0,0,0.55);
+      padding: 0 6px;
+      min-height: 18px;
+    }
+
+    @media (max-width: 720px){
+      .hudChip{ font-size: 11px; padding: 4px 7px; }
+      .hudChip.wide{ max-width: min(320px, 56vw); }
+      .hudBar{ height: 7px; }
+      .hudGauge{ width: 80px; height: 7px; }
+      .hudBarText{ min-width: 56px; font-size: 10px; }
+      .hudBarLabel{ font-size: 10px; width: 20px; }
+      .hudTop{ row-gap: 5px; padding: 8px 8px 6px; }
+      .hudToast{ left: 8px; right: 8px; bottom: 8px; font-size: 12px; }
+    }
+:root{
       /* PC 하단(와이어/업글) 패널 높이: 페이지 전체 스크롤을 만들지 않게 내부 스크롤로 처리 */
       --bottomPanelH: 280px;
     }
@@ -185,7 +364,7 @@ canvas {
     }
     .crystalHud .crystalLabel{ font-size:12px; font-weight:900; color:#b9d9ff; letter-spacing:0.2px; }
     .crystalHud .crystalValue{ font-size:20px; font-weight:1000; color:#eaf4ff; font-variant-numeric: tabular-nums; text-shadow:0 0 12px rgba(125,211,252,0.25); }
-.upgRow{ padding:8px 8px 10px; border:1px solid rgba(255,255,255,0.08); border-radius:12px; background:rgba(0,0,0,0.18); margin:8px 0; cursor:pointer; }
+.upgRow{ padding:8px 8px 10px; border:1px solid rgba(255,255,255,0.08); border-radius:12px; background:rgba(0,0,0,0.18); margin:8px 0; cursor:default; }
     .upgRow:hover{ background:rgba(255,255,255,0.06); }
     .upgRow.canBuy{
       border-color: rgba(125,211,252,0.42);
@@ -502,13 +681,47 @@ canvas {
       #mbMenu{ display:none !important; }
     }
 
-
   </style>
 </head>
 <body>
 <div class="wrap">
   <div class="leftCol">
+      <div id="hudOverlay" class="hudOverlay" aria-label="HUD">
+      <div class="hudTop">
+        <div class="hudLeft">
+          <div class="hudChip hudCrystal"><span class="hudIcon">✦</span><span id="uiCrystals">0</span></div>
+          <div class="hudChip" id="hudWave">Wave 1</div>
+        </div>
+
+        <div class="hudCenter">
+          <div class="hudBarRow">
+            <span class="hudBarLabel">HP</span>
+            <div class="hudBar"><div id="hudHpFill" class="hudFill hp"></div></div>
+            <span id="hudHpText" class="hudBarText">0/0</span>
+          </div>
+          <div class="hudBarRow">
+            <span class="hudBarLabel">SH</span>
+            <div class="hudBar"><div id="hudShFill" class="hudFill sh"></div></div>
+            <span id="hudShText" class="hudBarText">0/0</span>
+          </div>
+        </div>
+
+        <div class="hudRightLine">
+          <div class="hudChip">방어 <b id="hudArmor">0</b></div>
+          <div class="hudChip">실드 <b id="hudShArmor">0</b></div>
+          <div class="hudChip" id="hudMeta">x1.0</div>
+        </div>
+
+        <div class="hudPassive" id="hudPassiveWrap">
+          <div class="hudChip wide" id="hudPassiveText">패시브: 미선택</div>
+          <div class="hudGauge"><div id="hudPassiveFill" class="hudFill gauge"></div></div>
+        </div>
+      </div>  </div>
+  <div class="stage" id="stage">
     <canvas id="c" width="960" height="540"></canvas>
+    <div class="hudToast" id="uiMsg"></div>
+  </div>
+
 
     <div class="bottomRow">
     <div class="miniPanel" id="wirePanel">
@@ -519,27 +732,27 @@ canvas {
       <div class="miniText" id="wireText"></div>
     </div>
     <div class="miniPanel" id="upgPanelPC">
-      <div class="miniTitleRow">
-        <div class="miniTitle">업그레이드</div>
-        <button class="miniTitleBtn" data-upg-panel-toggle="pc" aria-expanded="true">접기</button>
-      </div>
-      <div id="uiUpgradesPC" class="small">
-        <div class="upgControls" data-upg-ctx="pc">
-          <div class="upgTabs">
-            <button class="upgTabBtn" data-upg-tab="all">전체</button>
-            <button class="upgTabBtn" data-upg-tab="core">코어</button>
-            <button class="upgTabBtn" data-upg-tab="turret">포탑</button>
-            <button class="upgTabBtn" data-upg-tab="util">유틸</button>
+          <div class="miniTitleRow">
+            <div class="miniTitle">업그레이드</div>
+            <button class="miniTitleBtn" data-upg-panel-toggle="pc" aria-expanded="true">접기</button>
           </div>
-          <input class="upgSearch" type="text" maxlength="32" placeholder="업그레이드 검색" data-upg-search>
-          <button class="upgCtlBtn" data-upg-only>구매가능만: OFF</button>
-          <button class="upgCtlBtn" data-upg-sort>정렬: 기본</button>
+          <div id="uiUpgradesPC" class="small">
+            <div class="upgControls" data-upg-ctx="pc">
+              <div class="upgTabs">
+                <button class="upgTabBtn" data-upg-tab="all">전체</button>
+                <button class="upgTabBtn" data-upg-tab="core">코어</button>
+                <button class="upgTabBtn" data-upg-tab="turret">포탑</button>
+                <button class="upgTabBtn" data-upg-tab="util">유틸</button>
+              </div>
+              <input class="upgSearch" type="text" maxlength="32" placeholder="업그레이드 검색" data-upg-search>
+              <button class="upgCtlBtn" data-upg-only>구매가능만: OFF</button>
+              <button class="upgCtlBtn" data-upg-sort>정렬: 기본</button>
+            </div>
+            <div class="upgHint">검색(/) · 탭 전환 · 정렬/구매가능 토글</div>
+            <div id="uiUpgListPC"></div>
+          </div>
         </div>
-        <div class="upgHint">검색(/) · 탭 전환 · 정렬/구매가능 토글</div>
-        <div id="uiUpgListPC"></div>
-      </div>
     </div>
-  </div>
   </div>
 
   <div class="panel">
@@ -556,34 +769,27 @@ canvas {
       <span class="kbd">2</span> 슬로우 /
       <span class="kbd">3</span> 스플래시 /
       <span class="kbd">Space</span> 긴급 보호막 /
-      <span class=\"kbd\">E</span> 에너지포 /
+      <span class="kbd">E</span> 에너지포 /
       <span class="kbd">F</span> 수리 /
       <span class="kbd">R</span> 재시작
     </p>
 
     <div class="sep"></div>
-
-    <div class="crystalHud">
-      <div class="crystalLabel">크리스탈</div>
-      <div class="crystalValue" id="uiCrystals">0</div>
-    </div>
-
-<p class="stat" id="uiStats"></p>
+<p class="stat" id="uiStats" style="display:none"></p>
 <p class="small" id="uiEvent"></p>
     <div class="miniPanel" style="margin-top:10px;">
       <div class="miniTitle">다음 웨이브 정보</div>
       <div class="miniText" id="uiPreview"></div>
     </div>
-
-    <p class="small" id="uiMsg"></p>    <p class="small" id="uiCheat"></p>
+<p class="small" id="uiCheat"></p>
 
     <div class="row">
       <button id="btnSound">사운드 ON</button>
-      <button id="btnVol">볼륨 85%</button>
+      <button id="btnVol">볼륨 75%</button>
     </div>
     <div class="row" style="align-items:center">
-      <input id="volSlider" type="range" min="0" max="100" step="1" value="85" style="flex:1">
-      <div class="small" id="volVal">85%</div>
+      <input id="volSlider" type="range" min="0" max="100" step="1" value="75" style="flex:1">
+      <div class="small" id="volVal">75%</div>
     </div>
     <div class="row">
       <button id="btnToggleWire">와이어 표시</button>
@@ -720,6 +926,7 @@ canvas {
       <button id="chKill">적 제거</button>
       <button id="chSkip">웨이브 스킵</button>
       <button id="chGod">무적 토글</button>
+      <button id="chPassiveFull">패시브 100%</button>
       <button id="chClose" class="danger">닫기</button>
     </div>
     <div class="cheatNote">※ 모바일: 버튼으로 사용 가능 / PC: T 토글 후 K,H,J,B,N,U,G</div>
@@ -860,7 +1067,7 @@ canvas {
     // BGM 전용 믹서(효과음과 분리해서 보스 웨이브에서만 강하게 만들기)
     let bgmMix = null, bgmLP = null, bgmDrive = null;
     let enabled = true;
-    let volume = 0.85;
+    let volume = 0.75;
 
     function makeDriveCurve(amount=0.35){
       // amount: 0(거의 없음) ~ 0.8(강함)
@@ -1694,6 +1901,7 @@ final: null,       // 최종 보스 패턴 상태
       // 코어 패시브(4택1)
       passiveId: null,        // "
       passiveLocked: false, // 재시작 전까지 패시브 변경 금지 ("rebuild" | "resonance" | "overload" | "overdrive")
+      passiveCheatFull: false, // 치트: 현재 패시브를 100%로 고정
       passiveStacks: 0,       // 공명 반격 스택
       passiveLastHitAt: -999, // 마지막 피격(스택 유지/감소용)
       passiveStackDecayAcc: 0,
@@ -1841,6 +2049,39 @@ shieldRegenBlockedUntil: 0,
     if (!cheatGuard()) return;
     state.god = !state.god;
     setMsg(state.god ? "무적 ON" : "무적 OFF", 2.0);
+  }
+
+
+  function passiveCheatFullOn(){
+    return !!(state.cheat && state.core.passiveCheatFull);
+  }
+
+  function cheatPassiveFull(){
+    if (!cheatGuard()) return;
+    if (!state.core.passiveId){
+      setMsg("패시브를 먼저 선택하세요.", 1.6);
+      return;
+    }
+    state.core.passiveCheatFull = !state.core.passiveCheatFull;
+    if (state.core.passiveCheatFull){
+      setMsg("패시브 100%: ON", 1.8);
+      if (state.core.passiveId === "resonance"){
+        resonanceEnsure();
+        state.core.resGauge = 100;
+        state.core.resChargePenaltyHpUntil = 0;
+        state.core.resChargePenaltyBreakUntil = 0;
+      }
+    } else {
+      setMsg("패시브 100%: OFF", 1.8);
+      if (state.core.passiveId === "overload"){
+        overloadEnsure();
+        state.core.overloadBurstUntil = 0;
+        state.core.overloadBurstReadyAt = 0;
+        const hpFrac = (state.core.hpMax>0) ? (state.core.hp/state.core.hpMax) : 1;
+        state.core.overloadWasAbove30 = hpFrac > OVERLOAD_CFG.triggerHp + 1e-6;
+      }
+    }
+    syncCheatButtons();
   }
 
   // ---------- Upgrades ----------
@@ -2087,7 +2328,7 @@ function renderUpgrades(){
       const enough = (state.crystals >= cost);
       const canBuy = canBuyOf(def);
 
-      const rowClass = canBuy ? "upgRow" : "upgRow disabled";
+      const rowClass = canBuy ? "upgRow canBuy" : "upgRow disabled";
       const btnLabel = (lv >= max) ? "MAX" : `${cost}`;
       const btnDisabled = (lv >= max) || (!enough) || (state.phase === "fail") || (state.phase === "win");
       const btnClass = btnDisabled ? "miniBtn isDisabled" : "miniBtn";
@@ -2125,6 +2366,19 @@ function renderUpgrades(){
   // ---------- UI ----------
   const uiStats = document.getElementById("uiStats");
     const uiCrystals = document.getElementById("uiCrystals");
+  // HUD (상단 오버레이)
+  const hudWave = document.getElementById("hudWave");
+  const hudHpFill = document.getElementById("hudHpFill");
+  const hudHpText = document.getElementById("hudHpText");
+  const hudShFill = document.getElementById("hudShFill");
+  const hudShText = document.getElementById("hudShText");
+  const hudArmor = document.getElementById("hudArmor");
+  const hudShArmor = document.getElementById("hudShArmor");
+  const hudMeta = document.getElementById("hudMeta");
+  const hudPassiveWrap = document.getElementById("hudPassiveWrap");
+  const hudPassiveText = document.getElementById("hudPassiveText");
+  const hudPassiveFill = document.getElementById("hudPassiveFill");
+
 const uiMsg   = document.getElementById("uiMsg");
 const uiCheat = document.getElementById("uiCheat");
 const uiUpgradesWrap = document.getElementById("uiUpgrades");
@@ -2323,15 +2577,7 @@ const uiFinalSupportDesc = document.getElementById("uiFinalSupportDesc");
     decayPerSec: 4.0,      // 공백 이후 초당 감소(%p)
     dischargeCd: 2.5,      // 방출 쿨(초)
     dischargeMul: 0.45,    // 최근 흡수량의 45%
-    dischargeCapMul: 1.50, // shieldMax * 1.50 상한
-
-    // ✅ 방출 체감/효과 강화
-    dischargeSplashR: 190,       // 주변 확산 반경(px)
-    dischargeSplashMul: 0.35,    // 확산 피해 계수(메인 대비)
-    dischargeExposeDur: 3.2,     // 노출 지속(초)
-    dischargeExposeMul: 1.15,    // 노출 중 받는 피해(일반/엘리트)
-    dischargeExposeMulBoss: 1.08,// 노출 중 받는 피해(보스/최종보스)
-    dischargeKeepGauge: 25       // 방출 후 남기는 게이지(%)
+    dischargeCapMul: 1.50  // shieldMax * 1.50 상한
   };
 
   // ---------- Overload core (임계 과부하) ----------
@@ -2379,7 +2625,6 @@ const uiFinalSupportDesc = document.getElementById("uiFinalSupportDesc");
     if (typeof c.resChargePenaltyHpUntil !== 'number') c.resChargePenaltyHpUntil = 0;
     if (typeof c.resChargePenaltyBreakUntil !== 'number') c.resChargePenaltyBreakUntil = 0;
     if (!Array.isArray(c.resAbsorbEvents)) c.resAbsorbEvents = [];
-    if (typeof c.resLastFullRecent !== 'number') c.resLastFullRecent = 0;
     // 충전 효율 페널티(HP 직격/실드 파괴)
     if (typeof c.resChargeHpUntil !== 'number') c.resChargeHpUntil = 0;
     if (typeof c.resChargeBreakUntil !== 'number') c.resChargeBreakUntil = 0;
@@ -2395,11 +2640,11 @@ const uiFinalSupportDesc = document.getElementById("uiFinalSupportDesc");
     c.resAbsorbEvents = [];
     c.resChargePenaltyHpUntil = 0;
     c.resChargePenaltyBreakUntil = 0;
-    c.resLastFullRecent = 0;
   }
 
   function resonanceGauge01(){
     resonanceEnsure();
+    if (passiveCheatFullOn() && state.core.passiveId === "resonance") return 1;
     return clamp((state.core.resGauge||0)/100, 0, 1);
   }
 
@@ -2452,12 +2697,7 @@ const uiFinalSupportDesc = document.getElementById("uiFinalSupportDesc");
     if (add <= 0.01) return;
     c.resChargeThisSec += add;
     c.resGauge = clamp((c.resGauge||0) + add, 0, 100);
-    if ((c.resGauge||0) >= 100) {
-      resonancePrune();
-      // 100% 도달 시점의 최근 흡수량을 저장(웨이브 사이 방출 지연 시 0딜 방지)
-      c.resLastFullRecent = Math.max(c.resLastFullRecent||0, resonanceRecentAbsSum());
-    }
-}
+  }
 
   function resonancePenaltyHp(){
     if (state.core.passiveId !== 'resonance') return;
@@ -2558,6 +2798,12 @@ const uiFinalSupportDesc = document.getElementById("uiFinalSupportDesc");
     resonanceEnsure();
     const c = state.core;
     const t = gameSec();
+
+    if (passiveCheatFullOn()) {
+      c.resGauge = 100;
+      c.resChargePenaltyHpUntil = 0;
+      c.resChargePenaltyBreakUntil = 0;
+    }
     resonancePrune();
 
     // 흡수 공백 후 감쇠 (최종전은 유지시간을 조금 더 늘려 체감 강화)
@@ -2672,48 +2918,117 @@ function selectFinalChoice(choice){
 if (btnFinalOffense) btnFinalOffense.addEventListener("click", ()=>selectFinalChoice("offense"));
 if (btnFinalDefense) btnFinalDefense.addEventListener("click", ()=>selectFinalChoice("defense"));
 
-// 업그레이드 입력: 클릭이 씹히는 환경(프레임마다 innerHTML 갱신 등) 대비
-// - pointerdown에서 "즉시 구매" 처리(마우스 업 전에 DOM이 바뀌어도 확실히 반영)
-// - 클릭 이벤트는 백업용
+// 업그레이드 입력(모바일 스크롤 오발 구매 방지)
+// - 구매는 행 전체가 아니라 '가격 버튼(miniBtn)'을 눌렀을 때만 처리
+// - pointerdown 즉시 구매 금지(스크롤 중 터치로 구매되는 문제 해결)
+// - pointermove로 드래그/스크롤 판단 후 pointerup에서 구매
 if (upgContainers.length) {
-  const handleUpg = (ev) => {
-    const row = ev.target.closest("[data-upg]");
-    if (!row) return;
+  let lastUpgHandledAt = 0;
+  let activeUpg = null; // {id, pid, x, y, moved}
+  const MOVE_PX = 10;
 
-    // 패널 클릭이 캔버스 설치 등으로 흘러가지 않게
-    ev.preventDefault();
-    ev.stopPropagation();
+  const stop = (ev) => { ev.stopPropagation(); };
 
+  const handlePointerDown = (ev) => {
+    // 업그레이드 영역 터치는 캔버스로 새지 않게
+    const row = ev.target.closest('[data-upg]');
+    if (row) stop(ev);
+
+    const btn = ev.target.closest('.miniBtn');
+    if (!btn || !row) return;
+
+    activeUpg = {
+      id: row.dataset.upg,
+      pid: ev.pointerId,
+      x: ev.clientX,
+      y: ev.clientY,
+      moved: false
+    };
+
+    try { btn.setPointerCapture(ev.pointerId); } catch (e) {}
+  };
+
+  const handlePointerMove = (ev) => {
+    if (!activeUpg || ev.pointerId !== activeUpg.pid) return;
+    const dx = Math.abs(ev.clientX - activeUpg.x);
+    const dy = Math.abs(ev.clientY - activeUpg.y);
+    if (dx > MOVE_PX || dy > MOVE_PX) activeUpg.moved = true;
+  };
+
+  const tryBuy = (id, ev) => {
     ensureAudio();
 
-    const id = row.dataset.upg;
     const def = UPGRADE_DEFS.find(d=>d.id===id);
     if (!def) return;
 
     const lv = state.upg[id];
     const cost = upgCost(def);
 
-    const canBuy = (lv < def.max) && (state.phase !== "fail") && (state.phase !== "win") && (state.crystals >= cost);
+    const canBuy = (lv < def.max) && (state.phase !== 'fail') && (state.phase !== 'win') && (state.crystals >= cost);
     if (!canBuy) {
-      SFX.play("click");
+      SFX.play('click');
       const msg =
-        (lv >= def.max) ? "이미 MAX입니다!" :
-        (state.phase === "fail") ? "붕괴 후에는 강화할 수 없습니다!" :
+        (lv >= def.max) ? '이미 MAX입니다!' :
+        (state.phase === 'fail') ? '붕괴 후에는 강화할 수 없습니다!' :
         (state.crystals < cost) ? `자원이 부족합니다! (${state.crystals}/${cost})` :
-        "지금은 강화할 수 없습니다!";
-      fxText(msg, CORE_POS.x, CORE_POS.y - 92, "#ff9fb2");
-      setMsg("업그레이드 실패: " + msg, 2.2);
+        '지금은 강화할 수 없습니다!';
+      fxText(msg, CORE_POS.x, CORE_POS.y - 92, '#ff9fb2');
+      setMsg('업그레이드 실패: ' + msg, 2.2);
       return;
     }
 
     buyUpgrade(id);
-    // 즉시 UI 갱신(다음 프레임 기다리지 않기)
     window.__upgLastRenderAt = 0;
     refreshUI();
+
+    if (ev) {
+      ev.preventDefault();
+      ev.stopPropagation();
+    }
   };
 
-  for (const el of upgContainers) el.addEventListener("pointerdown", handleUpg, { capture:true });
+  const handlePointerUp = (ev) => {
+    if (!activeUpg || ev.pointerId !== activeUpg.pid) return;
+
+    const now = performance.now();
+    const { id, moved } = activeUpg;
+    activeUpg = null;
+
+    // 스크롤/드래그로 판단되면 구매하지 않음
+    if (moved) return;
+
+    // 버튼을 제대로 눌렀을 때만 구매
+    const btn = ev.target.closest('.miniBtn');
+    if (!btn) return;
+
+    // 클릭 이벤트(후행) 중복 방지
+    lastUpgHandledAt = now;
+
+    tryBuy(id, ev);
+  };
+
+  const handleClick = (ev) => {
+    const now = performance.now();
+    if ((now - lastUpgHandledAt) < 350) return;
+
+    const btn = ev.target.closest('.miniBtn');
+    const row = btn ? btn.closest('[data-upg]') : null;
+    if (!btn || !row) return;
+
+    // 클릭도 캔버스로 새지 않게
+    ev.preventDefault();
+    ev.stopPropagation();
+
+    tryBuy(row.dataset.upg, ev);
+  };
+
+  for (const el of upgContainers) {
+    el.addEventListener('pointerdown', handlePointerDown, { capture:true });
+    el.addEventListener('pointermove', handlePointerMove, { capture:true });
+    el.addEventListener('pointerup', handlePointerUp, { capture:true });
+    el.addEventListener('click', handleClick, { capture:true });
   }
+}
 
   const btnWave = document.getElementById("btnWave");
   const btnRestart = document.getElementById("btnRestart");
@@ -2764,6 +3079,7 @@ const cheatModal = document.getElementById("cheatModal");
   const chKill = document.getElementById("chKill");
   const chSkip = document.getElementById("chSkip");
   const chGod = document.getElementById("chGod");
+  const chPassiveFull = document.getElementById("chPassiveFull");
   const chClose = document.getElementById("chClose");
 
   // Final support buttons (mobile)
@@ -2785,6 +3101,9 @@ const cheatModal = document.getElementById("cheatModal");
     }
     if (chGod){
       chGod.textContent = state.god ? "무적 OFF" : "무적 ON";
+    }
+    if (chPassiveFull){
+      chPassiveFull.textContent = state.core.passiveCheatFull ? "패시브 100% OFF" : "패시브 100% ON";
     }
   }
 
@@ -2823,6 +3142,7 @@ const cheatModal = document.getElementById("cheatModal");
   bindCheatBtn(chKill, ()=>cheatKillAll());
   bindCheatBtn(chSkip, ()=>cheatSkipWave());
   bindCheatBtn(chGod, ()=>toggleGod());
+  bindCheatBtn(chPassiveFull, ()=>cheatPassiveFull());
 
 
 
@@ -3154,7 +3474,7 @@ const cheatModal = document.getElementById("cheatModal");
 
     // Cheat actions (only when cheat ON)
     if (state.cheat){
-      if (["KeyK","KeyH","KeyJ","KeyB","KeyN","KeyU","KeyG"].includes(e.code)) { e.preventDefault(); ensureAudio(); }
+      if (["KeyK","KeyH","KeyJ","KeyB","KeyN","KeyU","KeyG","KeyP"].includes(e.code)) { e.preventDefault(); ensureAudio(); }
       if (e.code === "KeyK") cheatAddCrystals(500);
       if (e.code === "KeyH") cheatHealHP();
       if (e.code === "KeyJ") cheatRefillShield();
@@ -3162,6 +3482,7 @@ const cheatModal = document.getElementById("cheatModal");
       if (e.code === "KeyN") cheatSkipWave();
       if (e.code === "KeyU") cheatMaxUpgrades();
       if (e.code === "KeyG") toggleGod();
+      if (e.code === "KeyP") cheatPassiveFull();
     }
 
   });
@@ -3710,6 +4031,10 @@ function applyOverloadMark(e, add=1){
 }
 function overloadMarkBonus(e){
   if (!e) return 0;
+  if (passiveCheatFullOn() && state.core.passiveId === 'overload') {
+    const isBoss = (e.kind === 'boss') || e.isFinalBoss;
+    return OVERLOAD_CFG.markMax * (isBoss ? OVERLOAD_CFG.markBonusBoss : OVERLOAD_CFG.markBonus);
+  }
   const t = gameSec();
   if (t >= (e.ovMarkUntil||0)) return 0;
   const st = clamp(e.ovMarkStacks||0, 0, OVERLOAD_CFG.markMax);
@@ -3757,6 +4082,14 @@ function overloadShockBurst(){
 function updateOverload(dt){
   if (state.core.passiveId !== 'overload') return;
   overloadEnsure();
+  if (passiveCheatFullOn()) {
+    const t = gameSec();
+    // 치트: 체력/트리거와 무관하게 항상 버스트(최대 효율)
+    state.core.overloadBurstUntil = t + 9999;
+    state.core.overloadBurstReadyAt = 0;
+    state.core.overloadWasAbove30 = false;
+    return;
+  }
   const hpFrac = (state.core.hpMax>0) ? (state.core.hp/state.core.hpMax) : 1;
   const above = hpFrac > OVERLOAD_CFG.triggerHp + 1e-6;
   if (state.core.overloadWasAbove30 && !above) {
@@ -4032,7 +4365,7 @@ function updateFinalBoss(dt){
     if (state.core.passiveId === "overload") {
       const hpFrac = state.core.hpMax>0 ? (state.core.hp/state.core.hpMax) : 1;
       // HP 40% 이하부터 가속, 10%에서 최대
-      const tO = clamp((0.40 - hpFrac) / 0.30, 0, 1);
+      const tO = passiveCheatFullOn() ? 1 : clamp((0.40 - hpFrac) / 0.30, 0, 1);
       // 최대: 피해 +75%, 공속 +55%
       out.dmg *= (1 + 0.75*tO);
       out.fireRate *= (1 + 0.55*tO);
@@ -4183,10 +4516,6 @@ function applyProjectileHit(p, hit){
             if (state.core.passiveId === "overload" && p.ovBurst) mulB = mulB + (1 - mulB) * OVERLOAD_CFG.finalBossResistIgnore;
             cdmg *= mulB;
           }
-          if (tNow < (best.resExposeUntil||0)) {
-            const m2 = (best.kind === "boss") ? RESONANCE_CFG.dischargeExposeMulBoss : RESONANCE_CFG.dischargeExposeMul;
-            cdmg *= m2;
-          }
           best.hp -= cdmg;
           fxRing(best.x, best.y, 6, 30, "#fdba74");
           fxRing(hit.x, hit.y, 6, 30, "#fdba74");
@@ -4226,10 +4555,6 @@ function applyProjectileHit(p, hit){
             if (state.core.passiveId === "overload" && p.ovBurst) mulF = mulF + (1 - mulF) * OVERLOAD_CFG.finalBossResistIgnore;
             sdmg *= mulF;
           }
-          if (tNow < (e.resExposeUntil||0)) {
-            const m3 = (e.kind === "boss") ? RESONANCE_CFG.dischargeExposeMulBoss : RESONANCE_CFG.dischargeExposeMul;
-            sdmg *= m3;
-          }
           e.hp -= sdmg;
         }
       }
@@ -4266,6 +4591,11 @@ function applyProjectileHit(p, hit){
 
   // ---------- FX ----------
   function fxRing(x,y, r0, r1, color){ state.fx.push({ kind:"ring", x,y, t:0, dur:0.35, r0, r1, color }); }
+
+  function fxFlash(x,y, r=520, color="rgba(255,255,255,1)") {
+    // Radial flash (used for Overload/impact moments)
+    state.fx.push({ kind:"flash", x, y, t:0, dur:0.22, r, color });
+  }
 function fxLine(x1,y1,x2,y2, color, dur=0.9, width=4){
     state.fx.push({ kind:"line", x1,y1,x2,y2, t:0, dur, color, width });
   }
@@ -4275,8 +4605,6 @@ function fxLine(x1,y1,x2,y2, color, dur=0.9, width=4){
 
   function fxText(text,x,y,color){ state.fx.push({ kind:"text", x,y, t:0, dur:0.9, text, color }); }
   function fxShieldWave(x,y, radius){ state.fx.push({ kind:"shieldWave", x,y, t:0, dur:0.42, r0:radius, r1:radius+68, color:"#60a5fa" }); }
-
-  function fxFlash(x,y, r=520, color='rgba(253,186,116,1)'){ state.fx.push({ kind:"flash", x,y, t:0, dur:0.18, r, color }); }
 
   // ---------- Blue Flames ----------
   function spawnBlueFlame(intensity){
@@ -4533,13 +4861,13 @@ function fxLine(x1,y1,x2,y2, color, dur=0.9, width=4){
     let bonusShieldArmor = 0;
     // 임계 과부하: 저체력 피해 감소 (HP 35%↓부터, 10%에서 최대 25%)
     if (state.core.passiveId === "overload") {
-      const tO = clamp((0.35 - hpFrac0) / 0.25, 0, 1);
+      const tO = passiveCheatFullOn() ? 1 : clamp((0.35 - hpFrac0) / 0.25, 0, 1);
       amount *= (1 - 0.25*tO);
     }
 
     // 코어 오버드라이브: 저체력 피해 감소 (HP 40%↓부터, 10%에서 최대 18%)
     if (state.core.passiveId === "overdrive") {
-      const tO = clamp((0.40 - hpFrac0) / 0.30, 0, 1);
+      const tO = passiveCheatFullOn() ? 1 : clamp((0.40 - hpFrac0) / 0.30, 0, 1);
       amount *= (1 - 0.18*tO);
     }
 
@@ -4547,7 +4875,7 @@ function fxLine(x1,y1,x2,y2, color, dur=0.9, width=4){
     if (state.core.passiveId === "rebuild") {
       // HP 70%↓부터 방어/DR이 시작, HP 10%에서 최대치
       // (주의) 예전 hpPct/clamp01 참조로 런타임 에러가 나서 적/포탑 공격이 멈추는 버그가 있었음
-      const tB = clamp((0.70 - hpFrac0) / 0.60, 0, 1);       // 70%->0, 10%->1
+      const tB = passiveCheatFullOn() ? 1 : clamp((0.70 - hpFrac0) / 0.60, 0, 1);       // 70%->0, 10%->1
       // 저체력일수록 방어/보호막방어 보정 (최대 방어 +15 / 보호막방어 +7.5)
       bonusHpArmor = 15 * tB;
       bonusShieldArmor = 7.5 * tB;
@@ -5244,13 +5572,13 @@ function restart(){
       // 임계 과부하: 최대 +110%
       if (state.core.passiveId === "overload") {
         const hpFrac = state.core.hpMax>0 ? (state.core.hp/state.core.hpMax) : 1;
-        const tO = clamp((0.40 - hpFrac) / 0.30, 0, 1);
+        const tO = passiveCheatFullOn() ? 1 : clamp((0.40 - hpFrac) / 0.30, 0, 1);
         passiveShieldRegenMul *= (1 + 1.10*tO);
       }
       // 코어 오버드라이브: 최대 +60%
       if (state.core.passiveId === "overdrive") {
         const hpFrac = state.core.hpMax>0 ? (state.core.hp/state.core.hpMax) : 1;
-        const tO = clamp((0.40 - hpFrac) / 0.30, 0, 1);
+        const tO = passiveCheatFullOn() ? 1 : clamp((0.40 - hpFrac) / 0.30, 0, 1);
         passiveShieldRegenMul *= (1 + 0.60*tO);
       }
 if (gameSec() >= state.core.shieldRegenBlockedUntil) {
@@ -5353,7 +5681,8 @@ if (state.phase === "wave" && state.wave === FINAL_WAVE) {
     // 코어 패시브: 코어 오버드라이브(수정탑 직접 공격)
     if (state.phase === "wave" && state.core.passiveId === "overdrive") {
       const hpFrac = state.core.hpMax>0 ? (state.core.hp/state.core.hpMax) : 1;
-      const m = clamp(1 - hpFrac, 0, 1); // missing HP (0~1)
+      let m = clamp(1 - hpFrac, 0, 1); // missing HP (0~1)
+      if (passiveCheatFullOn()) { /* 치트: 체력과 무관하게 최대 효율 */ m = 1; }
       const dmgMul = clamp(1 + 1.4*Math.pow(m, 1.6), 1, 2.4);
       const asMul  = clamp(1 + 2.0*Math.pow(m, 1.2), 1, 3.0);
 
@@ -5639,8 +5968,9 @@ if (state.phase === "wave" && state.wave === FINAL_WAVE) {
     drawBlueExplosionFlash();
     drawResonanceScreenFlash();
 
-    if (state.phase !== "win") drawTopHUD();
-    if (state.phase !== "win") drawBossHUD();
+    // HTML HUD 사용: 캔버스 상단 HUD(구 UI) 비활성화
+    // if (state.phase !== "win") drawTopHUD();
+    // if (state.phase !== "win") drawBossHUD();
 
     if (state.phase === "win") drawWinOverlay();
 
@@ -6363,32 +6693,6 @@ function drawEnemy(e){
       ctx.restore();
     }
 
-    // 공명 노출(방출 후): 표시 링
-    if (time < (e.resExposeUntil||0)) {
-      const kk = clamp((e.resExposeUntil - time) / (RESONANCE_CFG.dischargeExposeDur||3.2), 0, 1);
-      ctx.save();
-      ctx.globalAlpha = 0.22 + 0.26*Math.sin(time*10) + 0.20*kk;
-      ctx.strokeStyle = 'rgba(253,186,116,0.95)';
-      ctx.lineWidth = 3;
-      ctx.beginPath();
-      ctx.arc(e.x, e.y + wob, e.r + 11, 0, Math.PI*2);
-      ctx.stroke();
-      ctx.restore();
-    }
-
-    // 과부하 표식(오버로드): 핑크 링
-    if (time < (e.ovMarkUntil||0) && (e.ovMarkStacks||0) > 0) {
-      const st = clamp(e.ovMarkStacks||0, 0, OVERLOAD_CFG.markMax);
-      ctx.save();
-      ctx.globalAlpha = 0.25 + 0.08*st + 0.10*Math.sin(time*12);
-      ctx.strokeStyle = "rgba(251,113,133,0.95)";
-      ctx.lineWidth = 2.5;
-      ctx.beginPath();
-      ctx.arc(e.x, e.y + wob, e.r + 10 + st*1.2, 0, Math.PI*2);
-      ctx.stroke();
-      ctx.restore();
-    }
-
     withTransform(e.x, e.y + wob, rot, () => {
       ctx.save();
       ctx.fillStyle = fill;
@@ -6525,6 +6829,32 @@ function drawEnemy(e){
     ctx.fillStyle = e.elite ? "#fbbf24" : base;
     ctx.fillRect(e.x - w/2, (e.y + wob) - br - (e.isFinalBoss ? 20 : 14), w*hpR, h);
     ctx.restore();
+    // 노출(공명) 상태 표시: 주황빛 링
+    const exT = gameSec();
+    if (exT < (e.resExposeUntil||0)) {
+      const k = clamp(((e.resExposeUntil||0) - exT) / 3.2, 0, 1);
+      ctx.save();
+      ctx.globalAlpha = 0.22 + 0.28*k;
+      ctx.strokeStyle = "#fdba74";
+      ctx.lineWidth = 5;
+      ctx.beginPath();
+      ctx.arc(e.x, (e.y + wob), e.r + 10 + 3*Math.sin(nowSec()*10 + e.seedAng), 0, Math.PI*2);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    // 과부하 표식 상태 표시: 핑크 링
+    if (exT < (e.ovMarkUntil||0) && (e.ovMarkStacks||0) > 0) {
+      const st = clamp(e.ovMarkStacks||0, 0, OVERLOAD_CFG.markMax);
+      ctx.save();
+      ctx.globalAlpha = 0.23 + 0.08*st + 0.10*Math.sin(nowSec()*12);
+      ctx.strokeStyle = "rgba(251,113,133,0.95)";
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      ctx.arc(e.x, (e.y + wob), e.r + 12 + st*1.2, 0, Math.PI*2);
+      ctx.stroke();
+      ctx.restore();
+    }
   }
 
   function drawProjectile(p){
@@ -6586,18 +6916,20 @@ function drawEnemy(e){
   function drawFx(f){
     const t = clamp(f.t / f.dur, 0, 1);
 
+
     if (f.kind === "flash") {
-      const k = 1 - t;
-      const r = lerp(0, f.r || 520, t);
+      const r = f.r || 520;
       ctx.save();
-      ctx.globalAlpha = 0.70 * k;
       ctx.globalCompositeOperation = "lighter";
-      const g = ctx.createRadialGradient(f.x, f.y, 0, f.x, f.y, r);
-      g.addColorStop(0.00, "rgba(255,255,255,1)");
-      g.addColorStop(0.35, (f.color || "rgba(253,186,116,1)").replace('1)', '0.85)'));
-      g.addColorStop(1.00, "rgba(253,186,116,0)");
+      ctx.globalAlpha = (1 - t) * 0.55;
+      const rr = lerp(0, r, t);
+      const g = ctx.createRadialGradient(f.x, f.y, 0, f.x, f.y, rr);
+      g.addColorStop(0, f.color || "rgba(255,255,255,1)");
+      g.addColorStop(1, "rgba(0,0,0,0)");
       ctx.fillStyle = g;
-      ctx.fillRect(0, 0, W, H);
+      ctx.beginPath();
+      ctx.arc(f.x, f.y, rr, 0, Math.PI*2);
+      ctx.fill();
       ctx.restore();
       return;
     }
@@ -6627,20 +6959,44 @@ function drawEnemy(e){
     }
 
     if (f.kind === "shieldWave") {
-      const r = lerp(f.r0, f.r1, t);
+      const r = f.r0;
       ctx.save();
-      ctx.globalAlpha = (1 - t) * 0.65;
+      ctx.globalCompositeOperation = "lighter";
+      ctx.globalAlpha = (1 - t) * 0.6;
+      ctx.shadowColor = "#7dd3fc";
+      ctx.shadowBlur = 14;
+      ctx.globalAlpha = (1 - t) * 0.5;
+      ctx.shadowColor = "#7dd3fc";
+      ctx.shadowBlur = 12;
       ctx.beginPath();
-      ctx.ellipse(f.x, f.y, r*1.05, r*0.95, 0, 0, Math.PI*2);
-      ctx.strokeStyle = f.color;
-      ctx.lineWidth = 5;
-      ctx.stroke();
+      ctx.ellipse(f.x, f.y, r*0.88, r*0.80, 0, 0, Math.PI*2);
+      ctx.fillStyle = "rgba(125,211,252,0.16)";
+      ctx.fill();
 
-      ctx.globalAlpha *= 0.8;
+      ctx.globalAlpha = (1 - t) * 0.55;
+      ctx.beginPath();
+      ctx.arc(f.x, f.y, r*0.9, 0, Math.PI*2);
+      ctx.fillStyle = "rgba(125,211,252,0.22)";
+      ctx.fill();
+
+      ctx.globalAlpha = (1 - t) * 0.35;
+      ctx.beginPath();
+      ctx.arc(f.x, f.y, r*0.6, 0, Math.PI*2);
+      ctx.fillStyle = "rgba(224,242,254,0.25)";
+      ctx.fill();
+      ctx.shadowBlur = 6;
+      ctx.globalAlpha *= 0.85;
       ctx.beginPath();
       ctx.ellipse(f.x, f.y, r*0.78, r*0.68, 0, 0, Math.PI*2);
       ctx.strokeStyle = "#93c5fd";
       ctx.lineWidth = 2;
+      ctx.stroke();
+
+      ctx.globalAlpha = (1 - t) * 0.35;
+      ctx.beginPath();
+      ctx.ellipse(f.x, f.y, r*0.55, r*0.48, 0, 0, Math.PI*2);
+      ctx.strokeStyle = "#e0f2fe";
+      ctx.lineWidth = 1.5;
       ctx.stroke();
       ctx.restore();
       return;
@@ -6905,7 +7261,7 @@ function refreshUI(){
       const d = CORE_PASSIVES[state.core.passiveId];
       if (state.core.passiveId === "rebuild") {
         const hpFrac = state.core.hpMax>0 ? (state.core.hp/state.core.hpMax) : 1;
-        const tB = clamp((0.70 - hpFrac) / 0.60, 0, 1);
+        const tB = passiveCheatFullOn() ? 1 : clamp((0.70 - hpFrac) / 0.60, 0, 1);
         const dr = (12*tB);
         const tNow = gameSec();
         const emOn = (tNow < (state.core.rebuildEmergencyUntil||0));
@@ -6921,7 +7277,7 @@ function refreshUI(){
       } else if (state.core.passiveId === "overload") {
         const tNow = gameSec();
         const hpFrac = state.core.hpMax>0 ? (state.core.hp/state.core.hpMax) : 1;
-        const tO = clamp((0.40 - hpFrac) / 0.30, 0, 1);
+        const tO = passiveCheatFullOn() ? 1 : clamp((0.40 - hpFrac) / 0.30, 0, 1);
 
         // 버스트/쇼크 상태
         overloadEnsure();
@@ -6941,7 +7297,7 @@ function refreshUI(){
         passiveBadge = `<span class="badge ${d.colorClass}">패시브: ${d.name} (과부하 ${(tO*100)|0}% | ${burstInfo} | ${markInfo})<\/span> `;
       } else if (state.core.passiveId === "overdrive") {
         const hpFrac = state.core.hpMax>0 ? (state.core.hp/state.core.hpMax) : 1;
-        const tO = clamp((0.40 - hpFrac) / 0.30, 0, 1);
+        const tO = passiveCheatFullOn() ? 1 : clamp((0.40 - hpFrac) / 0.30, 0, 1);
         passiveBadge = `<span class="badge ${d.colorClass}">패시브: ${d.name} (오버드라이브 ${(tO*100)|0}%)<\/span> `;
       }
     } else {
@@ -6950,13 +7306,13 @@ function refreshUI(){
 
     if (uiCrystals) uiCrystals.textContent = String(state.crystals|0);
 
-    
+
     // 방어 수치 표시 (패시브 보정 포함)
     let dispHpArmor = state.core.hpArmor;
     let dispShArmor = state.core.shieldArmor;
     if (state.core.passiveId === "rebuild") {
       const hpFrac = state.core.hpMax>0 ? (state.core.hp/state.core.hpMax) : 1;
-      const tB = clamp((0.70 - hpFrac) / 0.60, 0, 1);
+      const tB = passiveCheatFullOn() ? 1 : clamp((0.70 - hpFrac) / 0.60, 0, 1);
       dispHpArmor += 15 * tB;
       dispShArmor += 6.5 * tB;
     }
@@ -6968,14 +7324,46 @@ function refreshUI(){
     const hpArmorText = fmtArmor(dispHpArmor);
     const shArmorText = fmtArmor(dispShArmor);
 
-uiStats.innerHTML =
-      `<span class="badge">Wave ${state.wave}</span> ` +      `<span class="badge">HP ${Math.ceil(state.core.hp)}/${state.core.hpMax}</span> ` +
-      `<span class="badge">보호막 ${Math.ceil(state.core.shield)}/${state.core.shieldMax}</span> ` +
-      `<span class="badge">방어 ${hpArmorText}</span> ` +
-      `<span class="badge">보호막방어 ${shArmorText}</span> ` +
-      passiveBadge +
-      `<span class="badge">배속 ${state.speed.toFixed(1)}x</span> ` +
-      `<span class="badge">${state.cheat ? "치트 ON" : "치트 OFF"}</span>`;
+    // ===== 상단 HUD 업데이트 =====
+    const hp01 = state.core.hpMax>0 ? clamp(state.core.hp/state.core.hpMax, 0, 1) : 0;
+    const sh01 = state.core.shieldMax>0 ? clamp(state.core.shield/state.core.shieldMax, 0, 1) : 0;
+    if (hudHpFill) hudHpFill.style.width = `${(hp01*100).toFixed(1)}%`;
+    if (hudShFill) hudShFill.style.width = `${(sh01*100).toFixed(1)}%`;
+    if (hudHpText) hudHpText.textContent = `${Math.ceil(state.core.hp)}/${state.core.hpMax}`;
+    if (hudShText) hudShText.textContent = `${Math.ceil(state.core.shield)}/${state.core.shieldMax}`;
+
+    if (hudWave) {
+      const ph = (state.phase === 'wave') ? '전투' : (state.phase==='build'?'준비':(state.phase==='fail'?'실패':(state.phase==='end'?'클리어':'')));
+      hudWave.textContent = `Wave ${state.wave}${ph ? ` · ${ph}` : ''}`;
+    }
+    if (hudArmor) hudArmor.textContent = hpArmorText;
+    if (hudShArmor) hudShArmor.textContent = shArmorText;
+    if (hudMeta) hudMeta.textContent = `${state.speed.toFixed(1)}x${state.cheat ? ' · 치트' : ''}`;
+
+    // 패시브 텍스트/게이지
+    // - "패시브: 미선택" 같은 문구는 HUD 공간만 차지하므로, 실제 패시브가 선택됐을 때만 표시합니다.
+    const passivePlain = (passiveBadge || '').replace(/<[^>]*>/g,'').trim();
+    const hasPassive = !!state.core.passiveId;
+    if (hudPassiveWrap) hudPassiveWrap.style.display = hasPassive ? '' : 'none';
+    if (hudPassiveText) hudPassiveText.textContent = hasPassive ? passivePlain : '';
+
+    let pGauge = 0;
+    if (state.core.passiveId === "rebuild") {
+      const hpFrac = state.core.hpMax>0 ? (state.core.hp/state.core.hpMax) : 1;
+      pGauge = clamp((0.70 - hpFrac) / 0.60, 0, 1);
+    } else if (state.core.passiveId === "resonance") {
+      pGauge = resonanceGauge01();
+    } else if (state.core.passiveId === "overload" || state.core.passiveId === "overdrive") {
+      const hpFrac = state.core.hpMax>0 ? (state.core.hp/state.core.hpMax) : 1;
+      pGauge = clamp((0.40 - hpFrac) / 0.30, 0, 1);
+    } else {
+      pGauge = 0;
+    }
+    if (passiveCheatFullOn()) pGauge = 1; // cheat
+    if (hudPassiveFill) hudPassiveFill.style.width = `${(clamp(pGauge,0,1)*100).toFixed(1)}%`;
+
+    // 기존 우측 패널의 텍스트 뱃지는 숨김(대폭 UI 개편)
+    if (uiStats) uiStats.innerHTML = '';
 
     // UI message (업그레이드/안내) — 이벤트 정보에 덮어쓰이지 않게 분리
     if (uiMsg) {
@@ -7073,7 +7461,7 @@ uiStats.innerHTML =
     syncCheatButtons();
     if (uiCheat) {
       uiCheat.textContent = state.cheat
-        ? "치트키: T=토글, K=크리스탈+500, H=HP풀, J=보호막풀, B=적삭제, N=웨이브스킵, U=업글MAX, G=무적"
+        ? "치트키: T=토글, K=크리스탈+500, H=HP풀, J=보호막풀, B=적삭제, N=웨이브스킵, U=업글MAX, G=무적, P=패시브100"
         : "";
     }
 
@@ -7387,7 +7775,6 @@ if (mbFinalRow) {
   }
 
 })();
-
 
 </script>
 
